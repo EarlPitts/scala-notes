@@ -40,6 +40,15 @@ object List:
       case Nil => l2
       case Cons(x,xs) => Cons(x,append(xs,l2))
 
+  // With foldr
+  // TODO Can Cons be used without wrapping it in a lambda?
+  // Cons(_,_) didn't work
+  def append2[A](l1: List[A], l2: List[A]): List[A] =
+    foldr((x: A,xs: List[A]) => Cons(x,xs), l2, l1)
+
+  def flatten[A](l: List[List[A]]): List[A] =
+    foldr((l: List[A], ls: List[A]) => append(l,ls),Nil,l)
+
   def range(a: Int, b: Int): List[Int] =
     if a > b then Nil else Cons(a,range(a+1,b))
 
