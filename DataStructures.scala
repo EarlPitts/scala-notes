@@ -9,6 +9,9 @@ object List:
     if as.isEmpty then Nil
     else Cons(as.head, apply(as.tail*))
 
+  // def toString[A](l: List[A]): String =
+  //   "[" ++ foldr((x,s) => x.toString ++ "," ++ s, "]", l)
+
   def foldr[A,B](f: (A,B) => B, z: B, l: List[A]): B =
     l match
       case Nil => z
@@ -21,8 +24,43 @@ object List:
         case Cons(x,xs) => go(f(acc,x),xs)
     go(z,l)
 
+  def foldr2[A,B](f: (A,B) => B, z: B, l: List[A]): B =
+    // TODO Figure out how to import this flip from Intro
+    def flip[C](f: (A,B) => C): (B,A) => C =
+      (b,a) => f(a,b)
+    foldl(flip(f),z,l)
+
+  def tail[A](l: List[A]): List[A] =
+    l match
+      case Nil => Nil
+      case Cons(_, xs) => xs
+
+  def append[A](l1: List[A], l2: List[A]): List[A] =
+    l1 match
+      case Nil => l2
+      case Cons(x,xs) => Cons(x,append(xs,l2))
+
   def range(a: Int, b: Int): List[Int] =
     if a > b then Nil else Cons(a,range(a+1,b))
+
+  def init[A](l: List[A]): List[A] =
+    l match
+      case Cons(x,Nil) => Nil
+      case Cons(x,xs)  => Cons(x,init(xs))
+      case _           => sys.error("Oh no")
+
+  def length[A](l: List[A]): Int =
+    foldr((_,acc: Int) => acc + 1, 0, l)
+
+  def reverse[A](l: List[A]): List[A] =
+    def go(l: List[A], acc: List[A]): List[A] =
+      l match
+        case Nil        => acc
+        case Cons(x,xs) => go(xs,Cons(x,acc))
+    go(l,Nil)
+
+  def reverseWithFold[A](l: List[A]): List[A] =
+    foldl((acc: List[A],x: A) => Cons(x,acc),Nil,l)
 
   def take[A](a: Int, b: List[A]): List[A] =
     b match
@@ -88,6 +126,9 @@ import List.*
 
 val l = range(0,10)
 val asd = List(1 to 10)
+
+// Short-circuiting with foldr
+val x2 = foldr((x:Int ,acc: Int) => if x == 0 then 0 else x * acc, 1, l)
 
 // enum Nat:
 //   case Z
