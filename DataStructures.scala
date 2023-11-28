@@ -83,7 +83,10 @@ object Tree:
 // object Queue:
 //   def enqueue[A](q: Queue[A], x: A): Queue[A]
 
-val l = List.range(0,10)
+// You can import anywhere
+import List.*
+
+val l = range(0,10)
 val asd = List(1 to 10)
 
 // enum Nat:
