@@ -40,6 +40,28 @@ object List:
       case Nil => l2
       case Cons(x,xs) => Cons(x,append(xs,l2))
 
+  def map[A,B](f: A => B, as: List[A]): List[B] =
+    as match
+      case Nil => Nil
+      case Cons(a,as) => Cons(f(a),map(f,as))
+
+  def filter[A](p: A => Boolean, as: List[A]): List[A] =
+    as match
+      case Nil => Nil
+      case Cons(a,as) =>
+        if p(a) then Cons(a,filter(p, as)) else filter(p,as)
+
+  def flatMap[A,B](f: A => List[B], as: List[A]): List[B] =
+    flatten(map(f,as))
+
+  def filter2[A](p: A => Boolean, as: List[A]): List[A] =
+    flatMap((a: A) => if p(a) then List(a) else Nil, as)
+
+  def zipWith[A,B,C](f: (A,B) => C, as: List[A], bs: List[B]): List[C] =
+    (as,bs) match
+      case (Cons(a,as), Cons(b,bs)) => Cons(f(a,b),zipWith(f,as,bs))
+      case _                        => Nil
+
   // With foldr
   // TODO Can Cons be used without wrapping it in a lambda?
   // Cons(_,_) didn't work
