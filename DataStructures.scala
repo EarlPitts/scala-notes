@@ -62,6 +62,9 @@ object List:
       case (Cons(a,as), Cons(b,bs)) => Cons(f(a,b),zipWith(f,as,bs))
       case _                        => Nil
 
+  def zip[A,B](as: List[A], bs: List[B]): List[(A,B)] =
+    zipWith((a: A, b: B) => (a,b), as, bs)
+
   // With foldr
   // TODO Can Cons be used without wrapping it in a lambda?
   // Cons(_,_) didn't work
@@ -129,6 +132,21 @@ object List:
     l match
       case Nil => None
       case Cons(x, _) => Some(x)
+
+  def all[A](p: A => Boolean, l: List[A]): Boolean =
+    foldr((x: A, acc: Boolean) => p(x) && acc, true, l)
+
+  def any[A](p: A => Boolean, l: List[A]): Boolean =
+    foldr((x: A, acc: Boolean) => p(x) || acc, false, l)
+
+  // TODO This is wrong, sub can be longer, so the zip won't work
+  def isSubsequence[A](sup: List[A], sub: List[A]) =
+    def f(l: List[A]): List[List[A]] = l match
+      case Nil => Nil
+      case Cons(a,as) => Cons(Cons(a,as),f(as))
+    def p(x: (A,A)): Boolean = x match { case (x,y) => (x == y) }
+    val subs = map(((as: List[A]) => zip(as,sub)), f(sup))
+    any(_ == true, map((x: List[(A,A)]) => all(p,x), subs))
 
 enum Tree[+A]:
   case Leaf
