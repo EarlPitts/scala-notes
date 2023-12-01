@@ -152,9 +152,23 @@ enum Tree[+A]:
   case Leaf
   case Node(l: Tree[A], x: A, r: Tree[A])
 
+  // You could also define methods here, and refer to the value as "this",
+  // so you don't have to explicitly pass the value as an argument
+
 object Tree:
   def apply(xs: Int*): Tree[Int] =
     fromList(List(xs*))
+
+  def size[A](t: Tree[A]): Int =
+    t match
+      case Leaf        => 0
+      case Node(l,_,r) => 1 + size(l) + size(r)
+
+  def depth[A](t: Tree[A]): Int =
+    def max(x: Int, y: Int) = if x > y then x else y
+    t match
+      case Leaf                           => 0
+      case Node(l: Tree[A],_ ,r: Tree[A]) => 1 + max(depth(l),depth(r))
 
   def insertTree(t: Tree[Int], x: Int): Tree[Int] =
     t match
@@ -172,6 +186,15 @@ object Tree:
 
 // You can import anywhere
 import List.*
+
+trait Functor[F[_]]:
+  def fmap[A,B](f: A => B, fa: F[A]): F[B]
+
+given Functor[List] with
+ def fmap[A, B](f: A => B, fa: List[A]): List[B] =
+    fa match
+      case Nil         => Nil
+      case Cons(a, as) => Cons(f(a),fmap(f,as))
 
 val l = range(0,10)
 val asd = List(1 to 10)
