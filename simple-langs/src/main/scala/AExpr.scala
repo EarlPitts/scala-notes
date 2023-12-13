@@ -16,6 +16,7 @@ object Term:
       case Term.TmSucc(t) => isNumeric(t)
       case _              => false
 
+  // Smallstep operational semantics
   def eval1(t: Term): Option[Term] =
     t match
       case TmIf(TmTrue,t2,_)        => Some(t2)
