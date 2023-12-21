@@ -1,32 +1,35 @@
 package ULC
 
+import collection.immutable.List.*
+import parsley.Success
 import parsley.Parsley
-import parsley.character.{char, lower}
-import parsley.combinator.some
+import parsley.character.{char, lower, spaces}
+import parsley.combinator.{some, eof}
 import parsley.implicits.character.{charLift, stringLift}
 
-val p: Parsley[RawTerm] = ???
+lazy val p: Parsley[RawTerm] = pVar <|> pAbs <|> pApp
 
-def pApp: Parsley[RawTmApp] = for {
+lazy val pApp: Parsley[RawTmApp] = for {
+  _  <- char('(')
   t1 <- p
+  _  <- spaces
   t2 <- p
+  _  <- char(')')
 } yield RawTmApp(t1, t2)
 
-def pVar: Parsley[RawTmVar] = some(lower).map(x => RawTmVar(x.toString()))
+lazy val pVar: Parsley[RawTmVar] = some(lower).map(x => RawTmVar(x.toString()))
 
-// \v.t
-def pAbs: Parsley[RawTmAbs] = for {
+lazy val pAbs: Parsley[RawTmAbs] = for {
   _ <- char('\\')
-  v <- pVar
+  v <- some(lower).map(_.toString())
   _ <- char('.')
   t <- p
 } yield RawTmAbs(v,t)
-  
 
 enum RawTerm:
-  case RawTmVar(name: String)
+  case RawTmVar(n: Name)
   case RawTmApp(t1: RawTerm, t2: RawTerm)
-  case RawTmAbs(t2: RawTerm)
+  case RawTmAbs(v: Name, t: RawTerm)
 
 enum Term:
   case TmVar(ind: Int, size: Int)
@@ -38,6 +41,14 @@ type Context = List[Name]
   
 object Term:
 
+  def toNameless(t: RawTerm): Term =
+    def go(t: RawTerm, ctx: Context): Term =
+      t match
+        case RawTerm.RawTmApp(t1, t2) => TmApp(go(t1,ctx), go(t2,ctx))
+        case RawTerm.RawTmAbs(n,t)    => TmAbs(go(t,n :: ctx))
+        case RawTerm.RawTmVar(n)      => TmVar(ctx.indexOf(n),ctx.length)
+    go(t,List())
+  
   def isVal(t: Term): Boolean =
     t match
       case TmAbs(_) => true
@@ -77,6 +88,16 @@ import ULC.RawTerm.*
 val t = TmApp(TmAbs(TmVar(0,1)), (TmAbs(TmVar(0,1))))
 val t2 = TmApp(TmAbs(TmVar(1,2)), (TmAbs(TmVar(0,2))))
 val t3 = TmApp(TmAbs(TmAbs(TmApp(TmVar(2,3), TmVar(0,3)))), TmAbs(TmVar(0,2)))
+
+def eval(s: String): Option[Term] =
+  p.parse(s) match
+    case Success(t) => Some(Term.eval(Term.toNameless(t)))
+    case _                   => None
+
+val rt = "\\x.x"
+val rt2 = "\\x.\\y.x"
+val rt3 = "\\x.\\y.(x y)"
+val rt4 = "\\x.\\y.\\z.((x y) z)"
 
 val hello: Parsley[Unit] = ('h' *> ("ello" <|> "i") *> " world!").void
 
