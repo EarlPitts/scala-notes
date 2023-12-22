@@ -7,6 +7,9 @@ import parsley.character.{char, lower, spaces}
 import parsley.combinator.{some, eof}
 import parsley.implicits.character.{charLift, stringLift}
 
+import ULC.Term.*
+import ULC.RawTerm.*
+
 lazy val p: Parsley[RawTerm] = pVar <|> pAbs <|> pApp
 
 lazy val pApp: Parsley[RawTmApp] = for {
@@ -40,6 +43,8 @@ type Name = String
 type Context = List[Name]
   
 object Term:
+
+  // TODO Standard lib
 
   def toNameless(t: RawTerm): Term =
     def go(t: RawTerm, ctx: Context): Term =
@@ -82,25 +87,7 @@ object Term:
   def eval(t: Term): Term =
     if isVal(t) then t else eval(reduce(t))
 
-import ULC.Term.*
-import ULC.RawTerm.*
-
-val t = TmApp(TmAbs(TmVar(0,1)), (TmAbs(TmVar(0,1))))
-val t2 = TmApp(TmAbs(TmVar(1,2)), (TmAbs(TmVar(0,2))))
-val t3 = TmApp(TmAbs(TmAbs(TmApp(TmVar(2,3), TmVar(0,3)))), TmAbs(TmVar(0,2)))
-
 def eval(s: String): Option[Term] =
   p.parse(s) match
     case Success(t) => Some(Term.eval(Term.toNameless(t)))
     case _                   => None
-
-val rt = "\\x.x"
-val rt2 = "\\x.\\y.x"
-val rt3 = "\\x.\\y.(x y)"
-val rt4 = "\\x.\\y.\\z.((x y) z)"
-
-val hello: Parsley[Unit] = ('h' *> ("ello" <|> "i") *> " world!").void
-
-val hello2: Parsley[Unit] = for {
-  _ <- 'h' ~> "i"
-} yield ()
