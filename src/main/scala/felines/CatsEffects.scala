@@ -1,6 +1,6 @@
 package felines.CatsEffects
 
-import cats.effect.{IO, Resource, IOApp, ExitCode}
+import cats.effect.{IO, IOApp, ExitCode, Resource, Sync}
 import cats.effect.unsafe.implicits._
 import scala.concurrent.duration._
 import scala.io.Source
@@ -10,51 +10,51 @@ import java.io._
 
 object Main extends IOApp {
 
-  def inputStream(f: File): Resource[IO, FileInputStream] =
-    val acquire = IO.blocking(new FileInputStream(f))
+  def inputStream[F[_]: Sync](f: File): Resource[F, FileInputStream] =
+    val acquire = Sync[F].blocking(new FileInputStream(f))
     val release =
       (inStream: FileInputStream) =>
-        IO.blocking(inStream.close()) // .handleErrorWith(_ => IO.unit)
+        Sync[F].blocking(inStream.close()) // .handleErrorWith(_ => IO.unit)
     Resource.make(acquire)(release)
 
-// This is easier for types that implement AutoCloseable, but
-// you cannot control what happens with exceptions
+  // This is easier for types that implement AutoCloseable, but
+  // you cannot control what happens with exceptions
   def inputStreamAuto(f: File): Resource[IO, FileInputStream] =
     val acquire = IO(new FileInputStream(f))
     Resource.fromAutoCloseable(acquire)
 
-  def outputStream(f: File): Resource[IO, FileOutputStream] =
-    val acquire = IO.blocking(new FileOutputStream(f))
+  def outputStream[F[_]: Sync](f: File): Resource[F, FileOutputStream] =
+    val acquire = Sync[F].blocking(new FileOutputStream(f))
     val release =
       (outStream: FileOutputStream) =>
-        IO.blocking(outStream.close()) // .attempt.void
+        Sync[F].blocking(outStream.close()) // .attempt.void
     Resource.make(acquire)(release)
 
-  def inputOutputStreams(
+  def inputOutputStreams[F[_]: Sync](
       in: File,
       out: File
-  ): Resource[IO, (InputStream, OutputStream)] =
+  ): Resource[F, (InputStream, OutputStream)] =
     for {
       in <- inputStream(in)
       out <- outputStream(out)
     } yield (in, out)
 
-  def transfer(origin: InputStream, destination: OutputStream): IO[Long] =
-    def go(buffer: Array[Byte], acc: Long): IO[Long] =
+  def transfer[F[_]: Sync](origin: InputStream, destination: OutputStream): F[Long] =
+    def go(buffer: Array[Byte], acc: Long): F[Long] =
       for {
-        amount <- IO.blocking(origin.read(buffer, 0, buffer.size))
+        amount <- Sync[F].blocking(origin.read(buffer, 0, buffer.size))
         count <-
           if amount > -1
           then
-            IO.blocking(destination.write(buffer, 0, amount)) >> go(
+            Sync[F].blocking(destination.write(buffer, 0, amount)) >> go(
               buffer,
               acc + amount
             )
-          else IO.pure(acc)
+          else Sync[F].pure(acc)
       } yield count
     go(new Array[Byte](1024 * 10), 0L)
 
-  def copy(origin: File, destination: File): IO[Long] =
+  def copy[F[_]: Sync](origin: File, destination: File): F[Long] =
     inputOutputStreams(origin, destination).use { case (in, out) =>
       transfer(in, out)
     }
@@ -75,12 +75,14 @@ object Main extends IOApp {
         if args.length < 2
         then
           IO.raiseError(
-            new IllegalArgumentException("Need origin and destination files")
+            IllegalArgumentException("Need origin and destination files")
           )
         else IO.unit
-      orig = new File(args(0))
-      dest = new File(args(1))
-      count <- copy(orig, dest)
-      _     <- IO.println(s"$count bytes copied from ${orig.getPath} to ${dest.getPath}")
+      orig = File(args(0))
+      dest = File(args(1))
+      count <- copy[IO](orig, dest)
+      _ <- IO.println(
+        s"$count bytes copied from ${orig.getPath} to ${dest.getPath}"
+      )
     } yield ExitCode.Success
 }
