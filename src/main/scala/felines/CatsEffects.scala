@@ -39,7 +39,10 @@ object Main extends IOApp {
       out <- outputStream(out)
     } yield (in, out)
 
-  def transfer[F[_]: Sync](origin: InputStream, destination: OutputStream): F[Long] =
+  def transfer[F[_]: Sync](
+      origin: InputStream,
+      destination: OutputStream
+  ): F[Long] =
     def go(buffer: Array[Byte], acc: Long): F[Long] =
       for {
         amount <- Sync[F].blocking(origin.read(buffer, 0, buffer.size))
@@ -69,15 +72,20 @@ object Main extends IOApp {
         )
       }
 
+  def checkArgs(args: List[String]): IO[Unit] =
+    if args.length < 2 then
+      IO.raiseError(
+        IllegalArgumentException("Need origin and destination files")
+      )
+    else if args(0) == args(1) then
+      IO.raiseError(
+        IllegalArgumentException("Files have to differ")
+      )
+    else IO.unit
+
   def run(args: List[String]): IO[ExitCode] =
     for {
-      _ <-
-        if args.length < 2
-        then
-          IO.raiseError(
-            IllegalArgumentException("Need origin and destination files")
-          )
-        else IO.unit
+      _ <- checkArgs(args)
       orig = File(args(0))
       dest = File(args(1))
       count <- copy[IO](orig, dest)
