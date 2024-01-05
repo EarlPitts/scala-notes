@@ -41,7 +41,8 @@ object Main extends IOApp {
 
   def transfer[F[_]: Sync](
       origin: InputStream,
-      destination: OutputStream
+      destination: OutputStream,
+      bufferSize: Int
   ): F[Long] =
     def go(buffer: Array[Byte], acc: Long): F[Long] =
       for {
@@ -55,17 +56,21 @@ object Main extends IOApp {
             )
           else Sync[F].pure(acc)
       } yield count
-    go(new Array[Byte](1024 * 10), 0L)
+    go(new Array[Byte](bufferSize), 0L)
 
-  def copy[F[_]: Sync](origin: File, destination: File): F[Long] =
+  def copy[F[_]: Sync](
+      origin: File,
+      destination: File,
+      bufferSize: Int
+  ): F[Long] =
     inputOutputStreams(origin, destination).use { case (in, out) =>
-      transfer(in, out)
+      transfer(in, out, bufferSize)
     }
 
-  def copyBracket(origin: File, destination: File): IO[Long] =
+  def copyBracket(origin: File, destination: File, bufferSize: Int): IO[Long] =
     (IO(FileInputStream(origin)), IO(FileOutputStream(destination))).tupled
       .bracket { case (in, out) =>
-        transfer(in, out)
+        transfer(in, out, bufferSize)
       } { case (in, out) =>
         (IO(in.close()), IO(out.close())).tupled.void.handleErrorWith(_ =>
           IO.unit
@@ -86,9 +91,10 @@ object Main extends IOApp {
   def run(args: List[String]): IO[ExitCode] =
     for {
       _ <- checkArgs(args)
+      bufferSize = 1024 * 10
       orig = File(args(0))
       dest = File(args(1))
-      count <- copy[IO](orig, dest)
+      count <- copy[IO](orig, dest, bufferSize)
       _ <- IO.println(
         s"$count bytes copied from ${orig.getPath} to ${dest.getPath}"
       )
