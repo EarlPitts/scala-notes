@@ -31,12 +31,16 @@ object Printing extends App:
 
 object Timing extends App:
   import scala.concurrent.duration.FiniteDuration
-  
+  import scala.concurrent.duration.MILLISECONDS
+
   val clock: MyIO[Long] =
     MyIO(() => System.currentTimeMillis())
 
-  def time[A](action: MyIO[A]): MyIO[(FiniteDuration, A)] =
-    ???
+  def time[A](action: MyIO[A]): MyIO[(FiniteDuration, A)] = for
+    startTime <- clock
+    a <- action
+    endTime <- clock
+  yield (FiniteDuration(endTime - startTime, MILLISECONDS), a)
 
   val timedHello = Timing.time(MyIO.putStr("hello"))
 
