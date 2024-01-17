@@ -72,3 +72,24 @@ object Errors extends App:
     ohNoes2.attempt
 
   attempted2.flatMap(IO.println(_)).unsafeRunSync()
+
+  // onError performs an effect, but lets the error through
+  ohNoes.onError(t => IO.println("sajt")).handleError(_ => IO(2)).unsafeRunSync()
+
+object Execute extends IOApp:
+  def run(args: List[String]): IO[ExitCode] =
+    someComputation.as(ExitCode.Success)
+
+  def someComputation: IO[Unit] = for
+    _ <- IO.println("hello")
+    a = IO.raiseError[Unit](new RuntimeException("nooo!"))
+    ab <- a.attempt
+  yield ()
+
+object TickingClock extends IOApp.Simple:
+  def run: IO[Unit] = tickingClock
+
+  def tickingClock: IO[Unit] =
+    IO.println(System.currentTimeMillis)
+      >> IO.sleep(1.second)
+      >> tickingClock
