@@ -42,3 +42,33 @@ object Main extends App:
 
   (x >>= (IO.println(_))).unsafeRunSync()
   x.as(4).flatMap(IO.println(_)).unsafeRunSync()
+
+object Errors extends App:
+  val ohNoes = IO.raiseError[Int](new RuntimeException("oh noes!"))
+
+  val handled: IO[Int] =
+    ohNoes.handleError(_ => 2) // Short-circuit, provide value then stop
+
+  val handled2: IO[Int] =
+    ohNoes.handleErrorWith(_ => IO(2)) // Continue computation
+
+  handled.flatMap(IO.println(_)).unsafeRunSync()
+  handled2.flatMap(IO.println(_)).unsafeRunSync()
+
+  val adapt: IO[Int] =
+    ohNoes.adaptError(t => new Error("oh noo!"))
+
+  // val attempted: IO[Either[Throwable, Int]] =
+  //   ohNoes
+  //     .map(i => Right(i): Either[Throwable, Int])
+  //     .handleErrorWith(t => Left(t))
+  val attempted: IO[Either[Throwable, Int]] =
+    ohNoes.attempt
+  // Puts the result into a Left if there was an exception,
+  // or a Right if it succeeded
+
+  val ohNoes2 = IO.pure(2)
+  val attempted2: IO[Either[Throwable, Int]] =
+    ohNoes2.attempt
+
+  attempted2.flatMap(IO.println(_)).unsafeRunSync()
