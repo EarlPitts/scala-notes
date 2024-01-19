@@ -3,9 +3,9 @@ package effects
 import cats.effect.{IO, IOApp, ExitCode, Resource, Sync}
 import cats.effect.unsafe.implicits._
 import scala.concurrent.duration._
+import scala.concurrent._
 import scala.io.Source
 import cats.syntax.all._
-import scala.concurrent.Future
 
 object Main extends App:
   val hw: IO[Unit] = IO.delay(println("Hello world!"))
@@ -74,7 +74,10 @@ object Errors extends App:
   attempted2.flatMap(IO.println(_)).unsafeRunSync()
 
   // onError performs an effect, but lets the error through
-  ohNoes.onError(t => IO.println("sajt")).handleError(_ => IO(2)).unsafeRunSync()
+  ohNoes
+    .onError(t => IO.println("sajt"))
+    .handleError(_ => IO(2))
+    .unsafeRunSync()
 
 object Execute extends IOApp:
   def run(args: List[String]): IO[ExitCode] =
@@ -93,3 +96,43 @@ object TickingClock extends IOApp.Simple:
     IO.println(System.currentTimeMillis)
       >> IO.sleep(1.second)
       >> tickingClock
+
+object Future1 extends App:
+  implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+
+  // val hello = Future(println(s"[${Thread.currentThread.getName}] Hello"))
+  // val world = Future(println(s"[${Thread.currentThread.getName}] World"))
+  // val -> def delays execution
+  def hello = Future(println(s"[${Thread.currentThread.getName}] Hello"))
+  def world = Future(println(s"[${Thread.currentThread.getName}] World"))
+
+  // val hw1: Future[Unit] = for
+  //   _ <- hello
+  //   _ <- world
+  // yield ()
+
+  val hw1: Future[Unit] = hello.flatMap(_ => world.flatMap(_ => Future(())))
+
+  Await.ready(hw1, 1.seconds) // This timeouts for some reason
+
+  val hw2: Future[Unit] =
+    (hello, world).mapN((_, _) => ())
+
+  Await.ready(hw2, 1.seconds)
+
+object IOComp extends App:
+  val hello = IO(println(s"[${Thread.currentThread.getName}] Hello"))
+  val world = IO(println(s"[${Thread.currentThread.getName}] World"))
+
+  // val hw1: IO[Unit] = for
+  //   _ <- hello
+  //   _ <- world
+  // yield ()
+
+  val hw1: IO[Unit] = (hello >> world).void // This hangs, no idea why
+
+  val hw2: IO[Unit] =
+    (hello, world).mapN((_, _) => ())
+
+  hw1.unsafeRunSync()
+  hw2.unsafeRunSync()
