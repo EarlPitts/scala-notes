@@ -216,3 +216,47 @@ object Example7 extends IOApp.Simple:
     _ <- f.join
     _ <- IO.println("blast off!")
   yield ()
+
+trait Latch:
+  def release: IO[Unit]
+  def await: IO[Unit]
+  
+enum State:
+  case Awaiting(latches: Int, waiter: Deferred[IO,Unit])
+  case Done
+
+object Latch:
+  import State._
+
+  def apply(latches: Int): IO[Latch] = for
+    waiter <- IO.deferred[Unit]
+    state <- IO.ref[State](Awaiting(latches, waiter))
+  yield new Latch {
+    def release: IO[Unit] =
+      state.modify {
+        case Awaiting(n, waiter) =>
+          if n > 1
+            then (Awaiting(n-1, waiter), IO.unit)
+          else (Done, waiter.complete(()))
+        case Done => (Done, IO.unit)
+      }.flatten.void
+    def await: IO[Unit] =
+      state.get.flatMap {
+        case Done => IO.unit
+        case Awaiting(_, waiter) => waiter.get
+      }
+  }
+
+object Example8 extends IOApp.Simple:
+  def run: IO[Unit] =
+    IO.deferred[Unit].flatMap(s => IO(State.Awaiting(3,s)))
+
+object Example9 extends IOApp.Simple:
+  def run: IO[Unit] = for
+    l <- Latch(10)
+    _ <- (1 to 10).toList.traverse { i =>
+      (IO.println(s"$i counting down") *> l.release).start
+    }
+    _ <- l.await
+    _ <- IO.println("Got past the latch")
+  yield ()
