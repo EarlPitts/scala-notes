@@ -6,6 +6,7 @@ import scala.concurrent.duration._
 import scala.concurrent._
 import scala.io.Source
 import cats.syntax.all._
+import cats.effect.kernel.Deferred
 
 object Main extends App:
   val hw: IO[Unit] = IO.delay(println("Hello world!"))
@@ -182,8 +183,36 @@ object Example4 extends IOApp.Simple:
 
 object Example5 extends IOApp.Simple:
   def run: IO[Unit] = for
-    state <- IO.ref(0)
+    state <- IO.ref(0) // This works like IORef in Haskell
     fibers <- state.update(_ + 1).start.replicateA(100)
+    _ <- fibers.traverse_(_.join)
     value <- state.get
     _ <- IO.println(s"The final value is: $value")
+  yield ()
+
+object Example6 extends IOApp.Simple:
+  def run: IO[Unit] = for
+    state <- IO.deferred[Int] // This works like MVar in Haskell
+    f <- state.get.start // Blocks until MVar is filled
+    _ <- IO.sleep(2.seconds)
+    _ <- state.complete(2) // Fill MVar on main fiber
+    a <- f.joinWithNever
+    _ <- IO.println(s"The final value is: $a")
+  yield ()
+
+object Example7 extends IOApp.Simple:
+  def countdown(n: Int, pause: Int, waiter: Deferred[IO, Unit]): IO[Unit] =
+    IO.println(n) *> IO.defer {
+      if n == 0 then IO.unit
+      else if n == pause then IO.println("paused...") *> waiter.get *> countdown(n-1, pause, waiter)
+      else countdown(n-1, pause, waiter)
+    }
+
+  def run: IO[Unit] = for
+    waiter <- IO.deferred[Unit]
+    f <- countdown(10, 5, waiter).start
+    _ <- IO.sleep(5.seconds)
+    _ <- waiter.complete(())
+    _ <- f.join
+    _ <- IO.println("blast off!")
   yield ()
