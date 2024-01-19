@@ -136,3 +136,54 @@ object IOComp extends App:
 
   hw1.unsafeRunSync()
   hw2.unsafeRunSync()
+
+object Example1 extends IOApp.Simple:
+  def repeat(letter: String): IO[Unit] =
+    IO.print(letter).replicateA(100).void
+
+  def run: IO[Unit] = for
+    fa <- (repeat("A") *> repeat("B")).as("foo!").start
+    fb <- (repeat("C") *> repeat("D")).as("bar!").start
+    ra <- fa.joinWithNever
+    rb <- fb.joinWithNever
+    _ <- IO.println(s"\ndone: a says: $ra, b says: $rb")
+  yield ()
+
+object Example2 extends IOApp.Simple:
+  def run: IO[Unit] = for
+    fiber <- (IO.println("hello!") >> IO.sleep(1.seconds)).foreverM.start
+    _ <- IO.sleep(5.seconds)
+    _ <- fiber.cancel
+  yield ()
+
+object Example3 extends IOApp.Simple:
+  val a = IO.println("hello!").foreverM
+  val b = IO.println("world!").replicateA_(10)
+  // b should always win, as a runs forever
+
+  def run: IO[Unit] = for
+    c <- IO.race(a, b)
+    _ <- (c match
+      case Left(_)  => IO.println("a won")
+      case Right(_) => IO.println("b won")
+    )
+  yield ()
+
+object Example4 extends IOApp.Simple:
+  def fact(n: Long): Long = if (n == 0) then 1 else n * fact(n - 1)
+
+  def run: IO[Unit] = for
+    res <- IO.race(IO(fact(20)), IO(fact(20)))
+    _ <- res.fold(
+      a => IO.println(s"Right hand side won: $a"),
+      b => IO.println(s"Left hand side won: $b")
+    )
+  yield ()
+
+object Example5 extends IOApp.Simple:
+  def run: IO[Unit] = for
+    state <- IO.ref(0)
+    fibers <- state.update(_ + 1).start.replicateA(100)
+    value <- state.get
+    _ <- IO.println(s"The final value is: $value")
+  yield ()
