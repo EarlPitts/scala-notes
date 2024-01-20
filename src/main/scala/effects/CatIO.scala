@@ -260,3 +260,32 @@ object Example9 extends IOApp.Simple:
     _ <- l.await
     _ <- IO.println("Got past the latch")
   yield ()
+
+// https://typelevel.org/blog/2020/10/30/concurrency-in-ce3.html
+object Exercises extends IOApp.Simple:
+  def fibo(n: Long): Long = if n == 0 then 1 else n * fibo(n-1)
+  // I'm not sure how am I supposed to give back a fully polymorphic A
+  // in case of a timeout
+  def timeout[A](io: IO[A], duration: FiniteDuration): IO[Unit] =
+    IO.race(io, IO.sleep(duration)).void
+
+  def parTraverse[A,B](as: List[A])(f: A => IO[B]): IO[List[B]] = ???
+
+  trait Semaphore:
+    def acquire: IO[Unit]
+    def release: IO[Unit]
+
+  object Semaphore:
+    def apply(permits: Int): IO[Semaphore] = for
+      waiter <- IO.deferred[Unit]
+      n <- IO.ref[Int](0)
+    yield new Semaphore {
+      def acquire: IO[Unit] =
+        if n == permits
+          then IO.Unit
+          else ???
+      def release: IO[Unit] = ???
+    }
+
+
+  def run: IO[Unit] = timeout(IO(fibo(100)).flatMap(IO.println(_)), 5.seconds)
