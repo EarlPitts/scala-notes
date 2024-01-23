@@ -356,17 +356,19 @@ object DebugExample extends IOApp.Simple:
 object ParMapNErrors extends IOApp.Simple:
   import debug.*
 
+  // val ok = (IO.sleep(1.second) >> IO("hi")).myDebug
   val ok = IO("hi").myDebug
-  val ko1 = IO.raiseError[String](new RuntimeException("oh!")).debug
-  val ko2 = IO.raiseError[String](new RuntimeException("noes!")).debug
+  val ko1 = IO.raiseError[String](new RuntimeException("oh!")).myDebug
+  val ko2 = IO.raiseError[String](new RuntimeException("noes!")).myDebug
 
-  val e1 = (ok, ko1).parMapN((_, _) => ())
+  // val e1 = (ok, ko1).parMapN((_, _) => ())
+  val e1 = (ok, ko1).parTupled.void
   val e2 = (ko1, ok).parMapN((_, _) => ())
-  val e3 = (ko1, ko1).parMapN((_, _) => ())
+  val e3 = (ko1, ko2).parMapN((_, _) => ())
 
   def run: IO[Unit] =
-    e1.attempt.debug >>
-    IO("---").debug >>
-    e2.attempt.debug >>
-    IO("---").debug >>
-    e3.attempt.debug.void
+    e1.attempt.myDebug >>
+    IO("---").myDebug >>
+    e2.attempt.myDebug >>
+    IO("---").myDebug >>
+    e3.attempt.myDebug.void
