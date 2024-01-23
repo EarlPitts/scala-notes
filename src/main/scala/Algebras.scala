@@ -44,10 +44,9 @@ object Algebras:
     def optionMonoid[A]: Monoid[Option[A]] = new:
       def combine(a1: Option[A], a2: Option[A]) =
         (a1, a2) match
-          case (Some(a1), Some(a2)) => Some(a1)
-          case (Some(a1), None)     => Some(a1)
-          case (_,        Some(a2)) => Some(a2)
-          case (_,_)                => None
+          case (Some(a1), _) => Some(a1)
+          case (_, Some(a2)) => Some(a2)
+          case _             => None
       def empty = None
 
     def endoMonoid[A]: Monoid[A => A] = new:
