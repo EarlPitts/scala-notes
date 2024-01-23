@@ -372,3 +372,10 @@ object ParMapNErrors extends IOApp.Simple:
     e2.attempt.myDebug >>
     IO("---").myDebug >>
     e3.attempt.myDebug.void
+
+object parTraverse extends IOApp.Simple:
+  val l = (1 to 100).toList
+
+  def run: IO[Unit] = for
+    _ <- l.parTraverse(IO.println(_))
+  yield ()
