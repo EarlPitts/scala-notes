@@ -2,6 +2,7 @@ package effects
 
 import cats.effect.{IO, IOApp, ExitCode, Resource, Sync}
 import cats.effect.unsafe.implicits._
+import cats.effect.implicits._
 import scala.concurrent.duration._
 import scala.concurrent._
 import scala.io.Source
@@ -311,3 +312,61 @@ object Exercises extends IOApp.Simple:
     _ <- s.acquire
     _ <- s.release
   yield ()
+
+object debug {
+  /** Extension methods for an effect of type `F[A]`. */
+  implicit class DebugHelper[A](ioa: IO[A]) {
+
+    /** Print to the console the value of the effect
+     * along with the thread it was computed on. */
+    def myDebug: IO[A] =
+      for {
+        a <- ioa
+        tn = Thread.currentThread.getName
+        _ = println(s"[${tn}] $a") // <1>
+      } yield a
+  }
+}
+
+object ParTypeclass extends IOApp.Simple:
+  // parMapN (and all functions with the "par" prefix) converts
+  // the sequential IO values to IO.Par values, runs them in parallel, then
+  // translates back to IO
+  val a = (IO.pure(2), IO.pure(3)).parMapN(_ + _)
+
+  def run: IO[Unit] = for
+    res <- a
+    _ <- IO.println(res)
+  yield ()
+
+object DebugExample extends IOApp.Simple:
+  import debug.*
+
+  val hello = IO("hello").myDebug
+  val world = IO("world").myDebug
+
+  def run: IO[Unit] =
+    (hello, world)
+      // mapN will run on the smae thread sequentially
+      // .mapN((h, w) => s"$h $w")
+      // parMapN runs on different threads concurrently
+      .parMapN((h, w) => s"$h $w")
+      .myDebug.as(IO.unit)
+
+object ParMapNErrors extends IOApp.Simple:
+  import debug.*
+
+  val ok = IO("hi").myDebug
+  val ko1 = IO.raiseError[String](new RuntimeException("oh!")).debug
+  val ko2 = IO.raiseError[String](new RuntimeException("noes!")).debug
+
+  val e1 = (ok, ko1).parMapN((_, _) => ())
+  val e2 = (ko1, ok).parMapN((_, _) => ())
+  val e3 = (ko1, ko1).parMapN((_, _) => ())
+
+  def run: IO[Unit] =
+    e1.attempt.debug >>
+    IO("---").debug >>
+    e2.attempt.debug >>
+    IO("---").debug >>
+    e3.attempt.debug.void
