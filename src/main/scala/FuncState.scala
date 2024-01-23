@@ -144,7 +144,7 @@ def roll3: Rand[(Int, Int, Int)] =
 // General State type
 // type State[S, +A] = S => (A, S)
 
-final case class State[S, +A](runState: S => (A, S))
+case class State[S, +A](runState: S => (A, S))
 
 // type Rand[A] = State[RNG, A]
 

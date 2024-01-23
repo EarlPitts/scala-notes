@@ -5,7 +5,7 @@ object DataStructures:
     case Cons(head: A, tail: List[A])
 
   object List:
-    // Apply simply applies List as a function<
+    // Apply simply applies List as a function
     // serving as the constructor
     def apply[A](as: A*): List[A] =
       if as.isEmpty then Nil

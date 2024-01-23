@@ -100,3 +100,9 @@ object Main extends IOApp {
       )
     } yield ExitCode.Success
 }
+
+object Test extends IOApp {
+  def run(args: List[String]): IO[ExitCode] = helloWorld.map(_ => ExitCode.Success) // >> IO.pure(ExitCode.Success)
+
+  def helloWorld: IO[Unit] = IO.println("hello") >> IO.println("world")
+}
