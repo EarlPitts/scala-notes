@@ -130,12 +130,12 @@ object IOComp extends App:
   //   _ <- world
   // yield ()
 
-  val hw1: IO[Unit] = (hello >> world).void // This hangs, no idea why
+  // val hw1: IO[Unit] = (hello >> world).void // This hangs, no idea why
 
   val hw2: IO[Unit] =
-    (hello, world).mapN((_, _) => ())
+    (hello, world).parMapN((_, _) => ())
 
-  hw1.unsafeRunSync()
+  // hw1.unsafeRunSync()
   hw2.unsafeRunSync()
 
 object Example1 extends IOApp.Simple:
@@ -278,14 +278,36 @@ object Exercises extends IOApp.Simple:
   object Semaphore:
     def apply(permits: Int): IO[Semaphore] = for
       waiter <- IO.deferred[Unit]
-      n <- IO.ref[Int](0)
+      r <- IO.ref[Int](permits)
     yield new Semaphore {
-      def acquire: IO[Unit] =
-        if n == permits
-          then IO.Unit
-          else ???
-      def release: IO[Unit] = ???
+      // def acquire: IO[Unit] = for
+      //   n <- r.get
+      //   _ <- if n == 0
+      //           then waiter.get
+      //           else r.modify(n => (n-1, IO.unit))
+      // yield ()
+      def acquire: IO[Unit] = r.modify { n =>
+        if n == 0 then (n-1, waiter.get) else (n-1, IO.unit)
+      }
+      // def release: IO[Unit] = for
+      //   n <- r.get
+      //   _ <- if n == 0
+      //           then waiter.complete(()) >> r.modify(n => (n+1, IO.unit))
+      //           else r.modify(n => (n+1, IO.unit))
+      // yield ()
+      def release: IO[Unit] = r.modify { n =>
+        if n == permits then (n, IO.unit) else (n+1, waiter.complete(()))
+      }
     }
 
 
-  def run: IO[Unit] = timeout(IO(fibo(100)).flatMap(IO.println(_)), 5.seconds)
+  // def run: IO[Unit] = timeout(IO(fibo(100)).flatMap(IO.println(_)), 5.seconds)
+  def run: IO[Unit] = for
+    s <- Semaphore(1)
+    _ <- (s.acquire >> IO.println("thread 1 acq") >> IO.sleep(2.seconds) >> IO.println("thread 1 rel") >> s.release).start
+    _ <- (s.acquire >> IO.println("thread 2 acq") >> IO.sleep(2.seconds) >> IO.println("thread 2 rel") >> s.release).start
+    // _ <- s.acquire.start
+    _ <- IO.println("waitin to acquire")
+    _ <- s.acquire
+    _ <- s.release
+  yield ()
