@@ -205,8 +205,9 @@ object Example7 extends IOApp.Simple:
   def countdown(n: Int, pause: Int, waiter: Deferred[IO, Unit]): IO[Unit] =
     IO.println(n) *> IO.defer {
       if n == 0 then IO.unit
-      else if n == pause then IO.println("paused...") *> waiter.get *> countdown(n-1, pause, waiter)
-      else countdown(n-1, pause, waiter)
+      else if n == pause then
+        IO.println("paused...") *> waiter.get *> countdown(n - 1, pause, waiter)
+      else countdown(n - 1, pause, waiter)
     }
 
   def run: IO[Unit] = for
@@ -221,9 +222,9 @@ object Example7 extends IOApp.Simple:
 trait Latch:
   def release: IO[Unit]
   def await: IO[Unit]
-  
+
 enum State:
-  case Awaiting(latches: Int, waiter: Deferred[IO,Unit])
+  case Awaiting(latches: Int, waiter: Deferred[IO, Unit])
   case Done
 
 object Latch:
@@ -234,23 +235,26 @@ object Latch:
     state <- IO.ref[State](Awaiting(latches, waiter))
   yield new Latch {
     def release: IO[Unit] =
-      state.modify {
-        case Awaiting(n, waiter) =>
-          if n > 1
-            then (Awaiting(n-1, waiter), IO.unit)
-          else (Done, waiter.complete(()))
-        case Done => (Done, IO.unit)
-      }.flatten.void
+      state
+        .modify {
+          case Awaiting(n, waiter) =>
+            if n > 1
+            then (Awaiting(n - 1, waiter), IO.unit)
+            else (Done, waiter.complete(()))
+          case Done => (Done, IO.unit)
+        }
+        .flatten
+        .void
     def await: IO[Unit] =
       state.get.flatMap {
-        case Done => IO.unit
+        case Done                => IO.unit
         case Awaiting(_, waiter) => waiter.get
       }
   }
 
 object Example8 extends IOApp.Simple:
   def run: IO[Unit] =
-    IO.deferred[Unit].flatMap(s => IO(State.Awaiting(3,s)))
+    IO.deferred[Unit].flatMap(s => IO(State.Awaiting(3, s)))
 
 object Example9 extends IOApp.Simple:
   def run: IO[Unit] = for
@@ -264,13 +268,13 @@ object Example9 extends IOApp.Simple:
 
 // https://typelevel.org/blog/2020/10/30/concurrency-in-ce3.html
 object Exercises extends IOApp.Simple:
-  def fibo(n: Long): Long = if n == 0 then 1 else n * fibo(n-1)
+  def fibo(n: Long): Long = if n == 0 then 1 else n * fibo(n - 1)
   // I'm not sure how am I supposed to give back a fully polymorphic A
   // in case of a timeout
   def timeout[A](io: IO[A], duration: FiniteDuration): IO[Unit] =
     IO.race(io, IO.sleep(duration)).void
 
-  def parTraverse[A,B](as: List[A])(f: A => IO[B]): IO[List[B]] = ???
+  def parTraverse[A, B](as: List[A])(f: A => IO[B]): IO[List[B]] = ???
 
   trait Semaphore:
     def acquire: IO[Unit]
@@ -288,7 +292,7 @@ object Exercises extends IOApp.Simple:
       //           else r.modify(n => (n-1, IO.unit))
       // yield ()
       def acquire: IO[Unit] = r.modify { n =>
-        if n == 0 then (n-1, waiter.get) else (n-1, IO.unit)
+        if n == 0 then (n - 1, waiter.get) else (n - 1, IO.unit)
       }
       // def release: IO[Unit] = for
       //   n <- r.get
@@ -297,16 +301,17 @@ object Exercises extends IOApp.Simple:
       //           else r.modify(n => (n+1, IO.unit))
       // yield ()
       def release: IO[Unit] = r.modify { n =>
-        if n == permits then (n, IO.unit) else (n+1, waiter.complete(()))
+        if n == permits then (n, IO.unit) else (n + 1, waiter.complete(()))
       }
     }
-
 
   // def run: IO[Unit] = timeout(IO(fibo(100)).flatMap(IO.println(_)), 5.seconds)
   def run: IO[Unit] = for
     s <- Semaphore(1)
-    _ <- (s.acquire >> IO.println("thread 1 acq") >> IO.sleep(2.seconds) >> IO.println("thread 1 rel") >> s.release).start
-    _ <- (s.acquire >> IO.println("thread 2 acq") >> IO.sleep(2.seconds) >> IO.println("thread 2 rel") >> s.release).start
+    _ <- (s.acquire >> IO.println("thread 1 acq") >> IO.sleep(2.seconds) >> IO
+      .println("thread 1 rel") >> s.release).start
+    _ <- (s.acquire >> IO.println("thread 2 acq") >> IO.sleep(2.seconds) >> IO
+      .println("thread 2 rel") >> s.release).start
     // _ <- s.acquire.start
     _ <- IO.println("waitin to acquire")
     _ <- s.acquire
@@ -314,11 +319,13 @@ object Exercises extends IOApp.Simple:
   yield ()
 
 object debug {
+
   /** Extension methods for an effect of type `F[A]`. */
   implicit class DebugHelper[A](ioa: IO[A]) {
 
-    /** Print to the console the value of the effect
-     * along with the thread it was computed on. */
+    /** Print to the console the value of the effect along with the thread it
+      * was computed on.
+      */
     def myDebug: IO[A] =
       for {
         a <- ioa
@@ -351,7 +358,8 @@ object DebugExample extends IOApp.Simple:
       // .mapN((h, w) => s"$h $w")
       // parMapN runs on different threads concurrently
       .parMapN((h, w) => s"$h $w")
-      .myDebug.as(IO.unit)
+      .myDebug
+      .as(IO.unit)
 
 object ParMapNErrors extends IOApp.Simple:
   import debug.*
@@ -368,14 +376,98 @@ object ParMapNErrors extends IOApp.Simple:
 
   def run: IO[Unit] =
     e1.attempt.myDebug >>
-    IO("---").myDebug >>
-    e2.attempt.myDebug >>
-    IO("---").myDebug >>
-    e3.attempt.myDebug.void
+      IO("---").myDebug >>
+      e2.attempt.myDebug >>
+      IO("---").myDebug >>
+      e3.attempt.myDebug.void
 
 object parTraverse extends IOApp.Simple:
   val l = (1 to 100).toList
 
   def run: IO[Unit] = for
     _ <- l.parTraverse(IO.println(_))
+    _ <- l.map(IO.println(_)).parSequence
   yield ()
+
+// ### Concurrent Control ###
+object Conc extends IOApp.Simple:
+  import debug.*
+
+  def myParMap2Nope[A, B, C](ia: IO[A], ib: IO[B])(f: (A, B) => C): IO[C] = for
+    fiberA <- ia.start
+    fiberB <- ib.start
+    // This won't work
+    a <- fiberA.joinWithNever.onError(_ => fiberB.cancel)
+    b <- fiberB.joinWithNever.onError(_ => fiberA.cancel)
+  yield f(a, b)
+
+  def myParMap2[A, B, C](ia: IO[A], ib: IO[B])(f: (A, B) => C): IO[C] =
+    IO.racePair(ia, ib).flatMap {
+      case Left(a, fb)  => (a.embedNever, fb.joinWithNever).mapN(f)
+      case Right(fa, b) => (fa.joinWithNever, b.embedNever).mapN(f)
+    }
+
+  val joined: IO[String] = for
+    fiber <- IO("task").start
+    res <- fiber.joinWithNever
+  yield res
+
+  val task: IO[String] =
+    IO.sleep(1.seconds) >> IO("task").myDebug
+
+  def run: IO[Unit] = for
+    // _ <- IO.println("task").start
+    // _ <- IO.println(s"${Thread.currentThread.getName} task")
+    // _ <- joined.flatMap(IO.println(_))
+    fiber <- task.start
+    _ <- IO("pre-join").myDebug
+    _ <- fiber.joinWithNever.myDebug
+    _ <- IO("post-join").myDebug
+  yield ()
+
+object Cancel extends IOApp.Simple:
+  import debug.*
+
+  // def run: IO[Unit] = for
+  //   fiber <- task
+  //     .onCancel(IO("I was cancelled").myDebug.void)
+  //     .start
+  //   _ <- IO("pre-cancel").myDebug >> IO.sleep(1.second)
+  //   _ <- fiber.cancel
+  //   _ <- IO("cancelled").myDebug
+  // yield ()
+
+  def run: IO[Unit] = for _ <- (tickingClock, ohNoes).parTupled
+  yield ()
+
+  val task: IO[String] =
+    IO("task").myDebug *> IO.never
+
+  val tickingClock: IO[Unit] = for
+    _ <- IO(System.currentTimeMillis).myDebug
+    _ <- IO.sleep(1.second)
+    _ <- tickingClock
+  yield ()
+
+  val ohNoes =
+    IO.sleep(2.seconds) *> IO.raiseError(new RuntimeException("oh noes!"))
+
+object Timeout extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] = for
+    done <- IO.race(task, timeout)
+    _ <- done match
+      case Left(_)  => IO("   task: won").myDebug
+      case Right(_) => IO("timeout: won").myDebug
+  yield ()
+
+  val task: IO[Unit] = annotatedSleep("   task", 1000.millis)
+  val timeout: IO[Unit] = annotatedSleep("timeout", 500.millis)
+
+  def annotatedSleep(name: String, duration: FiniteDuration): IO[Unit] =
+    (
+      IO(s"$name: starting").myDebug *>
+        IO.sleep(duration) *>
+        IO(s"$name: done").myDebug
+    ).onCancel(IO(s"$name: cancelled").myDebug.void).void
