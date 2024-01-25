@@ -9,6 +9,9 @@ import scala.io.Source
 import cats.syntax.all._
 import cats.effect.kernel.Deferred
 import java.util.concurrent.Executors
+import scala.util.Success
+import scala.util.Failure
+import java.util.concurrent.CompletableFuture
 
 object Main extends App:
   val hw: IO[Unit] = IO.delay(println("Hello world!"))
@@ -506,13 +509,14 @@ object Shifting extends IOApp.Simple:
 
   def run: IO[Unit] =
     (ec("1"), ec("2")) match {
-      case (ec1, ec2) => for
-        _ <- IO("one").myDebug
-        // _ <- IO.shift(ec1) // CE2
-        _ <- IO("two").myDebug
-        // _ <- IO.shift(ec2)
-        _ <- IO("three").myDebug
-      yield ()
+      case (ec1, ec2) =>
+        for
+          _ <- IO("one").myDebug
+          // _ <- IO.shift(ec1) // CE2
+          _ <- IO("two").myDebug
+          // _ <- IO.shift(ec2)
+          _ <- IO("three").myDebug
+        yield ()
     }
 
   def ec(name: String): ExecutionContext =
@@ -521,3 +525,19 @@ object Shifting extends IOApp.Simple:
       t.setDaemon(true)
       t
     })
+
+object Async extends IOApp.Simple:
+  import debug.*
+
+  trait API:
+    def compute: Future[Int] = ???
+
+  def run: IO[Unit] = ???
+
+  def doSomething[A](api: API)(implicit ec: ExecutionContext): IO[Int] =
+    IO.async[Int] { cb =>
+      IO(Some(IO(api.compute.onComplete {
+        case Failure(t) => cb(Left(t))
+        case Success(a) => cb(Right(a))
+      })))
+    }.guarantee(IO.cede)
