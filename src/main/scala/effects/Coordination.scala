@@ -17,12 +17,12 @@ import debug.*
 import cats.effect.kernel.Ref
 
 object ConcurrentStateVar extends IOApp.Simple:
-  def run: IO[Unit] = for
-    _ <- (printTicks :: List.fill(3)(tickingClock)).parSequence
-    // _ <- (tickingClock, printTicks).parTupled
-  yield ()
+  def run: IO[Unit] =
+    for _ <- (printTicks :: List.fill(3)(tickingClock)).parSequence
+      // _ <- (tickingClock, printTicks).parTupled
+    yield ()
 
-  var ticks: Long = 0l
+  var ticks: Long = 0L
 
   val tickingClock: IO[Unit] = for
     _ <- IO.sleep(1.second)
@@ -38,14 +38,13 @@ object ConcurrentStateVar extends IOApp.Simple:
   yield ()
 
 object RefExample extends IOApp.Simple:
-  def doSomething(ref: Ref[IO, Int]) = for 
-    _ <- ref.update(_ + 1)
+  def doSomething(ref: Ref[IO, Int]) = for _ <- ref.update(_ + 1)
   yield ()
 
-  def twice(ref: Ref[IO, Int]) = for
-    _ <- List.fill(1000)(ref).parTraverse(doSomething(_))
-    // _ <- (doSomething(ref), doSomething(ref)).parTupled
-  yield ()
+  def twice(ref: Ref[IO, Int]) =
+    for _ <- List.fill(1000)(ref).parTraverse(doSomething(_))
+      // _ <- (doSomething(ref), doSomething(ref)).parTupled
+    yield ()
 
   def run: IO[Unit] = for
     ref <- IO.ref(0)
@@ -53,6 +52,44 @@ object RefExample extends IOApp.Simple:
     _ <- ref.get.flatMap(IO.println(_))
   yield ()
 
+// As far as I understood, atomic blocks are achieved with
+// something like STM in Haskell, so updates are retried until
+// they suceed
+object RefUpdateImpure extends IOApp.Simple:
+  def run: IO[Unit] = for
+    ref <- IO.ref(0)
+    _ <- List(1, 2, 3).parTraverse(task(_, ref))
+  yield ()
+
+  def task(id: Int, ref: Ref[IO, Int]): IO[Unit] =
+    ref
+      // .modify(previous => (id,println(s"$previous->$id")))
+      // .modify(previous => id -> println(s"$previous->$id")) // Impure
+      .modify(previous => id -> IO(s"$previous->$id").myDebug)
+      .flatten // Pure
+      .replicateA(3)
+      .void
+
+object Beep extends IOApp.Simple:
+  def run: IO[Unit] = for
+    ref <- IO.ref(0)
+    // _ <- (beepWhen13(ref),
+    //      (IO.sleep(100.millis) >> ref.update(_ + 1)).foreverM).parTupled
+    _ <- IO.race(
+      beepWhen13(ref),
+      (IO.sleep(100.millis) >> ref.update(_ + 1)).foreverM
+    )
+  yield ()
+
+  // Polling strategy
+  // We can replace this with deferred to block if condition is met
+  def beepWhen13(ref: Ref[IO, Int]): IO[Unit] = for
+    i <- ref.get
+    _ <-
+      if i >= 13
+      then IO(s"BEEP! $i").myDebug
+      else IO.sleep(1.second) >> beepWhen13(ref)
+  yield ()
 
 object Example5 extends IOApp.Simple:
   def run: IO[Unit] = for
