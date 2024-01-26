@@ -39,7 +39,7 @@ object ConcurrentStateVar extends IOApp.Simple:
 
 object RefExample extends IOApp.Simple:
   def doSomething(ref: Ref[IO, Int]) = for 
-    _ <- ref.modify(i => (i+1, IO))
+    _ <- ref.update(_ + 1)
   yield ()
 
   def twice(ref: Ref[IO, Int]) = for
