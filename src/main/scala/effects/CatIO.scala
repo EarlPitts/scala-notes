@@ -550,13 +550,24 @@ val stringResource: Resource[IO, String] =
     IO("> acquiring stringResource").myDebug *> IO("String")
   )(_ => IO("< releasing stringResource").myDebug.void)
 
+val intResource: Resource[IO, Int] =
+  import debug.*
+
+  Resource.make(
+    IO("> acquiring intResource").myDebug *> IO(99)
+  )(_ => IO("< releasing intResource").myDebug.void)
+
 object Resources extends IOApp.Simple:
   import debug.*
 
   def run: IO[Unit] =
-    stringResource.use { s =>
-      IO(s"$s is so cool!").myDebug
-    }.void
+    // Resource is a functor
+    stringResource
+      .map(_.toUpperCase)
+      .use { s =>
+        IO(s"$s is so cool!").myDebug
+      }
+      .void
 
 object ResourceFailure extends IOApp.Simple:
   import debug.*
@@ -602,16 +613,15 @@ object BackgroundTaskResource extends IOApp.Simple:
   def run: IO[Unit] = for
     _ <- backgroundTask.use { _ =>
       IO("other work while background task is running").myDebug >>
-      IO.sleep(200.millis) >>
-      IO("other work done").myDebug
+        IO.sleep(200.millis) >>
+        IO("other work done").myDebug
     }
     _ <- IO("all done").myDebug
   yield ()
 
-  val backgroundTask: Resource[IO,Unit] =
+  val backgroundTask: Resource[IO, Unit] =
     val loop =
-      (IO("looping...").myDebug >> IO.sleep(100.millis))
-        .foreverM
+      (IO("looping...").myDebug >> IO.sleep(100.millis)).foreverM
 
     // background is equivalent to make(loop.start)(_.cancel)
     loop.background.void
@@ -619,3 +629,62 @@ object BackgroundTaskResource extends IOApp.Simple:
     //   .make(IO("> forking backgroundTask").myDebug >> loop.start)(
     //     IO("< canceling backgroundTask").myDebug.void >> _.cancel
     //   ).void
+
+object BasicResourceComposed extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] =
+    (stringResource, intResource).parTupled.use { case (s, i) =>
+      IO(s"$s is so cool!").myDebug >>
+        IO(s"$i is also cool!").myDebug
+    }.void
+
+object EarlyRelease extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] = for
+    config <- configResource.use(IO(_))
+    res <- dbConnectionResource(config).use(conn => conn.query("SELECT * FROM users WHERE id = 12").myDebug)
+  yield ()
+
+  def dbConnectionResource(config: Config): Resource[IO, DbConnection] =
+    DbConnection.make(config.connectURL)
+
+  lazy val configResource: Resource[IO, Config] = for
+    source <- sourceResource
+    config <- Resource.liftK(Config.fromSource(source))
+  yield config
+
+  lazy val sourceResource: Resource[IO, Source] =
+    Resource.make(
+      IO(s"> opening Source to config")
+        .myDebug >> IO(Source.fromString(config))
+        )(source => IO(s"< closing Source to config").myDebug >> IO(source.close))
+  
+  val config = "exampleConnectURL"
+
+case class Config(connectURL: String)
+
+object Config:
+  import debug.*
+
+  def fromSource(source: Source): IO[Config] = for
+    config <- IO(Config(source.getLines().next()))
+    _ <- IO(s"read $config").myDebug
+  yield config
+
+trait DbConnection:
+  def query(sql: String): IO[String]
+
+object DbConnection:
+  import debug.*
+
+  def make(connectURL: String): Resource[IO, DbConnection] =
+    Resource.make(
+      IO(s"> opening Connection to $connectURL").myDebug >> IO(
+        new DbConnection {
+          def query(sql: String): IO[String] =
+            IO(s"""(results for SQL "$sql")""")
+        }
+      )
+  )(_ => IO(s"< closing Connection to $connectURL").myDebug.void)
