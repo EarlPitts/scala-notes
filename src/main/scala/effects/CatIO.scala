@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import scala.util.Success
 import scala.util.Failure
 import java.util.concurrent.CompletableFuture
+import java.io.RandomAccessFile
 
 object Main extends App:
   val hw: IO[Unit] = IO.delay(println("Hello world!"))
@@ -541,3 +542,80 @@ object Async extends IOApp.Simple:
         case Success(a) => cb(Right(a))
       })))
     }.guarantee(IO.cede)
+
+val stringResource: Resource[IO, String] =
+  import debug.*
+
+  Resource.make(
+    IO("> acquiring stringResource").myDebug *> IO("String")
+  )(_ => IO("< releasing stringResource").myDebug.void)
+
+object Resources extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] =
+    stringResource.use { s =>
+      IO(s"$s is so cool!").myDebug
+    }.void
+
+object ResourceFailure extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] =
+    stringResource
+      .use(_ => IO.raiseError(new RuntimeException("oh noes!")))
+      .attempt
+      .myDebug
+      .void
+
+object FileResource extends IOApp.Simple:
+  def run: IO[Unit] = for
+    _ <- IO.println("Making resource")
+    r = FileBufferReader.makeResource("build.sbt")
+    data <- r.use(f => f.readBuffer(100))
+    _ <- IO.println((data._1.map(_.toChar)).mkString)
+  yield ()
+
+  class FileBufferReader private (in: RandomAccessFile):
+    def readBuffer(offset: Long): IO[(Array[Byte], Int)] =
+      IO {
+        in.seek(offset)
+
+        val buf = new Array[Byte](FileBufferReader.bufferSize)
+        val len = in.read(buf)
+
+        (buf, len)
+      }
+    private def close: IO[Unit] = IO(in.close())
+
+  object FileBufferReader:
+    val bufferSize = 4096
+
+    def makeResource(fileName: String): Resource[IO, FileBufferReader] =
+      Resource.make(
+        IO(new FileBufferReader(new RandomAccessFile(fileName, "r")))
+      )(res => res.close)
+
+object BackgroundTaskResource extends IOApp.Simple:
+  import debug.*
+
+  def run: IO[Unit] = for
+    _ <- backgroundTask.use { _ =>
+      IO("other work while background task is running").myDebug >>
+      IO.sleep(200.millis) >>
+      IO("other work done").myDebug
+    }
+    _ <- IO("all done").myDebug
+  yield ()
+
+  val backgroundTask: Resource[IO,Unit] =
+    val loop =
+      (IO("looping...").myDebug >> IO.sleep(100.millis))
+        .foreverM
+
+    // background is equivalent to make(loop.start)(_.cancel)
+    loop.background.void
+    // Resource
+    //   .make(IO("> forking backgroundTask").myDebug >> loop.start)(
+    //     IO("< canceling backgroundTask").myDebug.void >> _.cancel
+    //   ).void
