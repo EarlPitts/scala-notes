@@ -91,6 +91,26 @@ object Beep extends IOApp.Simple:
       else IO.sleep(1.second) >> beepWhen13(ref)
   yield ()
 
+object BetterBeep extends IOApp.Simple:
+  def run: IO[Unit] = for
+    ticks <- IO.ref(0)
+    is13 <- IO.deferred[Unit]
+    _ <- (beepWhen13(is13), tickingClock(ticks, is13)).parTupled
+  yield ()
+
+  def beepWhen13(is13: Deferred[IO, Unit]) = for
+    _ <- is13.get
+    _ <- IO("BEEP!").myDebug
+  yield ()
+
+  def tickingClock(ticks: Ref[IO, Int], is13: Deferred[IO, Unit]): IO[Unit] = for
+    _ <- IO.sleep(1.second)
+    _ <- IO(System.currentTimeMillis).myDebug
+    count <- ticks.updateAndGet(_ + 1)
+    _ <- if (count >= 13) is13.complete(()) else IO.unit
+    _ <- tickingClock(ticks, is13)
+  yield ()
+
 object Example5 extends IOApp.Simple:
   def run: IO[Unit] = for
     state <- IO.ref(0) // This works like IORef in Haskell
