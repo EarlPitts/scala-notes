@@ -212,3 +212,13 @@ object DataStructures:
   //   def apply = ???
 
   val x = List(1,2,3)
+
+object Pizza:
+  enum Crust:
+    case Thin, Thick
+
+  enum Size:
+    case Small, Medium, Large
+
+  case class Pizza(c: Crust, s: Size):
+    override def toString: String = s"Delicious pizza with $c crust and $s size"
