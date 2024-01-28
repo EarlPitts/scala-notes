@@ -111,6 +111,24 @@ object BetterBeep extends IOApp.Simple:
     _ <- tickingClock(ticks, is13)
   yield ()
 
+object BeepLatch extends IOApp.Simple:
+  def run: IO[Unit] = for
+    l <- Latch(13)
+    _ <- (beepWhen13(l), tickingClock(l)).parTupled
+  yield ()
+
+  def beepWhen13(l: Latch) = for
+    _ <- l.await
+    _ <- IO("BEEP!").myDebug
+  yield ()
+
+  def tickingClock(l: Latch): IO[Unit] = for
+    _ <- IO.sleep(1.second)
+    _ <- IO(System.currentTimeMillis).myDebug
+    _ <- l.release
+    _ <- tickingClock(l)
+  yield ()
+
 object Example5 extends IOApp.Simple:
   def run: IO[Unit] = for
     state <- IO.ref(0) // This works like IORef in Haskell
