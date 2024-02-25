@@ -208,6 +208,31 @@ object Division:
   def divide(n1: Int, n2: Int): Option[Double] =
     if n2 == 0 then None else Some(n1 / n2)
 
+sealed trait TrafficLight
+case object Red extends TrafficLight
+case object Green extends TrafficLight
+case object Yellow extends TrafficLight
+
+object Calculator:
+  sealed trait Result
+  case class Success(n: Int) extends Result
+  case class Fail(reason: String) extends Result
+  
+  // enum Result:
+  //   case Success(n: Int)
+  //   case Fail(reason: String)
+
+object Water:
+  trait Source
+  case object Well extends Source
+  case object Spring extends Source
+  case object Tap extends Source
+    
+  case class BottledWater(
+    size: Int,
+    source: Source,
+    carbonated: Boolean)
+
 object App extends IOApp.Simple:
   import Shapes.*
 
