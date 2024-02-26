@@ -4,10 +4,13 @@ import cats.effect._
 
 import cats.Order
 import cats.implicits._, cats._, cats.derived._
+import math.Numeric.Implicits.infixNumericOps
 
 import Color._
 import Food._
 import java.util.Date
+
+import scala.annotation.tailrec
 
 enum Color:
   case Black, Ginger, TabbyWhite
@@ -204,24 +207,6 @@ object Shapes:
         case Square(size, color) => s"A ${Draw(color)} square of size $size"
         case Rectangle(height, width, color) => s"A ${Draw(color)} rectangle with height $height and width $width"
     
-object Division:
-  def divide(n1: Int, n2: Int): Option[Double] =
-    if n2 == 0 then None else Some(n1 / n2)
-
-sealed trait TrafficLight
-case object Red extends TrafficLight
-case object Green extends TrafficLight
-case object Yellow extends TrafficLight
-
-object Calculator:
-  sealed trait Result
-  case class Success(n: Int) extends Result
-  case class Fail(reason: String) extends Result
-  
-  // enum Result:
-  //   case Success(n: Int)
-  //   case Fail(reason: String)
-
 object Water:
   trait Source
   case object Well extends Source
@@ -233,11 +218,142 @@ object Water:
     source: Source,
     carbonated: Boolean)
 
+object TrafficExercise:
+
+  // sealed trait TrafficLight:
+  //   def next: TrafficLight
+  // case object Red extends TrafficLight:
+  //   def next: TrafficLight = Green
+  // case object Green extends TrafficLight:
+  //   def next: TrafficLight = Yellow
+  // case object Yellow extends TrafficLight:
+  //   def next: TrafficLight = Red
+
+  sealed trait TrafficLight:
+    def next: TrafficLight =
+      this match
+        case Red => Green
+        case Green => Yellow
+        case Yellow => Red
+  case object Red extends TrafficLight
+  case object Green extends TrafficLight
+  case object Yellow extends TrafficLight
+
+  def next(t: TrafficLight): TrafficLight =
+    t match
+      case Red => Green
+      case Green => Yellow
+      case Yellow => Red
+
+object Calculator:
+  // enum Result:
+  //   case Success(n: Int)
+  //   case Fail(reason: String)
+
+  sealed trait Calculation
+  case class Success(result: Int) extends Calculation
+  case class Failure(reason: String) extends Calculation
+  
+  def +(c: Calculation, n2: Int): Calculation =
+    c match
+      case Success(n1) => Success(n1 + n2)
+      case fail        => fail
+
+  def -(c: Calculation, n2: Int): Calculation =
+    c match
+      case Success(n1) => Success(n1 - n2)
+      case fail        => fail
+
+  def /(c: Calculation, n2: Int): Calculation =
+    c match
+      case Success(n1) => if n2 == 0 then Failure("Division by zero") else Success(n1 / n2)
+      case fail        => fail
+
+object Laziness:
+  case class LazyList[A](head: A, tail: () => LazyList[A])
+
+  object LazyList:
+    def repeat[A](a: A): LazyList[A] =
+      LazyList(a, () => repeat(a))
+  
+
+enum Maybe[+A]:
+  case Nothing
+  case Just(a: A)
+
+import Maybe.*
+
+enum MyList[+A]:
+  case Nil
+  case Cons(head: A, tail: MyList[A])
+
+  def foldr[B](f: (A,B) => B)(z: B): B =
+    this match
+      case Nil => z
+      case Cons(h,t) => f(h,t.foldr(f)(z))
+
+  def foldrTail[B](f: (A,B) => B)(z: B): B =
+    def go(t: MyList[A], acc: B): B =
+      t match
+        case Nil => acc
+        case Cons(h,t) => go(t,f(h,acc))
+    go(this, z)
+
+  def length: Int =
+    this.foldr((_, len: Int) => len + 1)(0)
+
+  def apply(n: Int): Maybe[A] =
+    this match
+      case Nil        => Nothing
+      case Cons(a,as) => if n == 0 then Just(a) else as(n-1)
+
+object MyList:
+  def apply[A](l: A*): MyList[A] =
+    if l.isEmpty
+    then Nil
+    else Cons(l.head, apply(l.tail*))
+
+  def sum[A: Monoid](l: MyList[A]): A =
+    l.foldr((a: A, b: A) => Monoid[A].combine(a,b))(Monoid[A].empty)
+
+  def contains[A](l: MyList[A], item: A): Boolean =
+    l.foldr((a: A, res: Boolean) => a == item || res)(false)
+    // l match
+    //   case Nil => false
+    //   case Cons(a,as) => if a == item then true else contains(as,item)
+
+
+enum Tree[A]:
+  case Leaf(a: A)
+  case Node(l: Tree[A], r: Tree[A])
+
+  def foldr[B](f: (A,B) => B)(z: B): B =
+    this match
+      case Leaf(a) => f(a,z)
+      case Node(l,r) => l.foldr(f)(r.foldr(f)(z))
+
+object Tree:
+  def sum[A: Monoid](l: Tree[A]): A =
+    l.foldr((a: A, b: A) => Monoid[A].combine(a,b))(Monoid[A].empty)
+
+given Functor[Maybe] with
+  def map[A,B](m: Maybe[A])(f: A => B): Maybe[B] =
+    m match
+      case Nothing => Nothing
+      case Just(a) => Just(f(a))
+
+def id[A](a: A): A = a
+
 object App extends IOApp.Simple:
-  import Shapes.*
+  import Tree.*
 
   def run: IO[Unit] = for
     _ <- IO.println("##########################")
-    _ <- IO.println(Draw(Rectangle(2,3,Custom(123,120,194))))
+    _ <- IO.println(MyList(1,2,3).foldrTail((a: Int, b: Int) => a + b)(0))
+    _ <- IO.println(Functor[Maybe].map(Just(2))(_ + 1))
+    _ <- IO.println(MyList.sum(MyList("a","b")))
+    _ <- IO.println(MyList.contains(MyList(1,2,3,4),5))
+    _ <- IO.println(Tree.sum(Node(Node(Leaf(2),Leaf(4)),Node(Node(Leaf(3),Leaf(5)),Leaf(8)))))
+    _ <- IO.println(MyList(1,2,3,4)(3))
     _ <- IO.println("##########################")
   yield ()
