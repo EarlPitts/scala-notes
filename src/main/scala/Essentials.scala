@@ -277,11 +277,48 @@ object Laziness:
       LazyList(a, () => repeat(a))
   
 
-enum Maybe[+A]:
-  case Nothing
-  case Just(a: A)
+// enum Maybe[+A]:
+//   case Nothing
+//   case Just(a: A)
+//
+//
+//   def foldr[B](f: (A,B) => B)(z: B): B =
+//     this match
+//       case Nothing => z
+//       case Just(a) => f(a,z)
+//
+//   def map[B](f: A => B): Maybe[B] =
+//     flatMap[B](a => Just(f(a)))
+//
+//   def flatMap[B](f: A => Maybe[B]): Maybe[B] =
+//     this match
+//       case Just(a) => f(a)
+//       case Nothing => Nothing
+//
+// import Maybe.*
 
-import Maybe.*
+sealed trait Maybe[+A]:
+
+  def foldr[B](f: (A,B) => B)(z: B): B =
+    this match
+      case Nothing => z
+      case Just(a) => f(a,z)
+
+  def map[B](f: A => B): Maybe[B] =
+    flatMap[B](a => Just(f(a)))
+
+  def flatMap[B](f: A => Maybe[B]): Maybe[B] =
+    this match
+      case Just(a) => f(a)
+      case Nothing => Nothing
+case class Just[A](a: A) extends Maybe[A]
+case object Nothing extends Maybe[Nothing]
+
+// sealed trait Functor[F[_]]:
+//   def map[A,B](fa: F[A])(f: A => B): F[B]
+//
+//   def as[A,B](fa: F[A])(b: B): F[B] = map(fa)(_ => b)
+//   def void[A](fa: F[A]): F[Unit] = map(fa)(_ => ())
 
 enum MyList[+A]:
   case Nil
@@ -299,6 +336,12 @@ enum MyList[+A]:
         case Cons(h,t) => go(t,f(h,acc))
     go(this, z)
 
+  def map[B](f: A => B): MyList[B] =
+    foldr((a: A, bs: MyList[B]) => Cons(f(a), bs))(Nil)
+
+  def bind[B](f: A => MyList[B]): MyList[B] =
+    MyList.join(map(f))
+
   def length: Int =
     this.foldr((_, len: Int) => len + 1)(0)
 
@@ -307,11 +350,24 @@ enum MyList[+A]:
       case Nil        => Nothing
       case Cons(a,as) => if n == 0 then Just(a) else as(n-1)
 
+  // Yes I know this looks terrible
+  override def toString: String =
+    foldr((a: A, s: String) => s"$a,$s" )("")
+
+  // def double[A : Numeric]: MyList[A] =
+  //   this.foldr((x: A, l: MyList[A]) => Cons(x*2,l))(Nil)
+
 object MyList:
   def apply[A](l: A*): MyList[A] =
     if l.isEmpty
     then Nil
     else Cons(l.head, apply(l.tail*))
+
+  def ++[A](l1: MyList[A], l2: MyList[A]): MyList[A] =
+    l1.foldr((a: A, l: MyList[A]) => Cons(a,l))(l2)
+
+  def join[A](ls: MyList[MyList[A]]): MyList[A] =
+    ls.foldr((l1: MyList[A], l2: MyList[A]) => MyList.++(l1,l2))(Nil)
 
   def sum[A: Monoid](l: MyList[A]): A =
     l.foldr((a: A, b: A) => Monoid[A].combine(a,b))(Monoid[A].empty)
@@ -344,16 +400,106 @@ given Functor[Maybe] with
 
 def id[A](a: A): A = a
 
+case class Pair[A,B](a: A, b: B)
+
+// sealed trait Either[A,B]
+// case class Left[A,B](a: A) extends Either[A,B]
+// case class Right[A,B](b: B) extends Either[A,B]
+
+case class Box[+A](value: A):
+  def set[AA >: A](a: AA): Box[AA] = Box(a)
+
+sealed trait Sum[+A,+B]:
+  def flatMap[AA >: A, C](f: B => Sum[AA,C]): Sum[AA,C] =
+    this match
+      case Failure(a) => Failure(a)
+      case Success(b) => f(b)
+
+case class Failure[A](a: A) extends Sum[A,Nothing]
+case class Success[B](b: B) extends Sum[Nothing,B]
+
+
+enum Either[A,+B]:
+  case Left(a: A)
+  case Right(b: B)
+
+  def value: A | B =
+    this match
+      case Left(x) => x
+      case Right(x) => x
+
+  def fold[C](f: A => C, g: B => C): C =
+    this match
+      case Left(a) => f(a)
+      case Right(b) => g(b)
+
+  def map[C](f: B => C): Either[A,C] =
+    this match
+      case Left(a) => Left(a)
+      case Right(b) => Right(f(b))
+
+  def flatMap[C](f: B => Either[A,C]): Either[A,C] =
+    this match
+      case Left(a) => Left(a)
+      case Right(b) => f(b)
+
+import Either.*
+
+def intOrString(g: Boolean): Either[Int, String] =
+  if g then Left(123) else Right("abc")
+
+object Flatmapping:
+    List(Just(1), Just(2), Just(3)).map((ma: Maybe[Int]) => ma.flatMap((n: Int) => if n % 2 == 0 then Just(n) else Nothing))
+  
+object NewCalculator:
+  type Res = Either[String, Double]
+
+  enum Expression:
+    case Addition(l: Expression, r: Expression)
+    case Subtraction(l: Expression, r: Expression)
+    case Division(l: Expression, r: Expression)
+    case SquareRoot(e: Expression)
+    case Number(n: Int)
+
+    def div(l: Expression, r: Expression): Res = for
+      n1 <- l.eval
+      n2 <- r.eval
+      res <- if n2 == 0 then Left("division by zero") else Right(n1 / n2)
+    yield res
+    // l.eval.flatMap(n1 => r.eval.flatMap(n2 => if n2 == 0 then Left("division by zero") else Right(n1 / n2)))
+
+    def bin(l: Expression, r: Expression, op: (Double, Double) => Double): Res = for
+      n1 <- l.eval
+      n2 <- r.eval
+    yield op(n1,n2)
+    // l.eval.flatMap(n1 => r.eval.flatMap(n2 => Right(op(n1,n2))))
+
+    def un(e: Expression, op: Double => Double): Res =
+      e.eval.flatMap(n => Right(op(n)))
+
+    def eval: Res =
+      this match
+        case Addition(l, r) => bin(l,r, _ + _)
+        case Subtraction(l, r) => bin(l,r, _ - _)
+        case Division(l, r) => div(l,r)
+        case SquareRoot(e) => un(e,math.sqrt)
+        case Number(n) => Right(n)
+        
 object App extends IOApp.Simple:
-  import Tree.*
+
+  import NewCalculator.Expression.*
+
+  val e1 = Division(Addition(Addition(Number(1), Number(2)), Addition(Number(3), Number(4))), Number(2))
+  val e2 = Division(Addition(Addition(Number(1), Number(2)), Addition(Number(3), Number(4))), Number(0))
+  
+  def stuff: List[Any] = List(
+      e1.eval,
+      e2.eval
+    )
+    
 
   def run: IO[Unit] = for
     _ <- IO.println("##########################")
-    _ <- IO.println(MyList(1,2,3).foldrTail((a: Int, b: Int) => a + b)(0))
-    _ <- IO.println(Functor[Maybe].map(Just(2))(_ + 1))
-    _ <- IO.println(MyList.sum(MyList("a","b")))
-    _ <- IO.println(MyList.contains(MyList(1,2,3,4),5))
-    _ <- IO.println(Tree.sum(Node(Node(Leaf(2),Leaf(4)),Node(Node(Leaf(3),Leaf(5)),Leaf(8)))))
-    _ <- IO.println(MyList(1,2,3,4)(3))
+    _ <- stuff.traverse(IO.println(_))
     _ <- IO.println("##########################")
   yield ()
