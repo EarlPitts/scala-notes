@@ -568,12 +568,35 @@ object FilmExercises:
     then directors.sortWith((d1, d2) => d1.yearOfBirth < d2.yearOfBirth)
     else directors.sortWith((d1, d2) => d1.yearOfBirth > d2.yearOfBirth)
 
+  val nolanFilms = nolan.films.map(_.name)
+  val allFilms = directors.flatMap(_.films.map(_.name))
+  val earliest = mcTiernan.films.foldRight(Int.MaxValue)((a: Film, b: Int) => math.min(a.yearOfRelease,b))
+  val highScores = directors.flatMap(_.films).sortWith((f1: Film, f2: Film) => f1.imdbRating > f2.imdbRating)
+  val films = directors.flatMap(_.films)
+  val average = films.map(_.imdbRating).sum / films.length
+  // val tonight = for
+  //   d <- directors
+  //   films = d.films
+  // yield films.traverse(f => IO.println(s"Tonigh only! ${f.name} by ${d.firstName}"))
+  val tn = directors.traverse(d => d.films.traverse(f => IO.println(s"Tonight only! ${f.name} by ${d.firstName}")))
+  val earliestByAny = directors.flatMap(_.films).sortWith((f1, f2) => f1.yearOfRelease < f2.yearOfRelease).head
+
+  val nolanFilmsFor = for f <- nolan.films yield f.name
+  val allFilmsFor = for
+    d <- directors
+    f <- d.films
+  yield f.name
+  val tonightFor = for
+    d <- directors
+    f <- d.films
+  yield IO.println(f)
+
 object App extends IOApp.Simple:
 
   import FilmExercises.*
 
   def stuff: List[Any] = List(
-    sortThem(false)
+    allFilmsFor
   )
 
   def run: IO[Unit] = for
