@@ -513,6 +513,19 @@ object Collections:
   0 :: l
   List(1, 2, 3) ::: l // List concat
 
+  // Maps
+  val m = Map(('a',1), ('b',2), ('c',3))
+  val m2 = Map("a" -> 1) + ("b" -> 2) + ("c" -> 3) + ("d" -> 4) + ("e" -> 5)
+  m('a') // Map -> Int, throws an exception
+  m.get('a') // Map -> Option[Int]
+  m.getOrElse('a', -1)
+  m.contains('a')
+  m.size
+  m + (('c',4),('d',5)) // c gets replaced
+  m - ('c', 'd')
+  m ++ m // intersection, empty map
+
+
 object FilmExercises:
   case class Film(name: String, yearOfRelease: Int, imdbRating: Double)
   case class Director(
@@ -591,12 +604,60 @@ object FilmExercises:
     f <- d.films
   yield IO.println(f)
 
+object Options:
+
+  def addOptions(a: Option[Int], b: Option[Int]): Option[Int] = for
+    n1 <- a
+    n2 <- b
+  yield n1 + n2
+
+  def addOptions2(a: Option[Int], b: Option[Int]): Option[Int] =
+    a.flatMap(n1 => b.map(n2 => n1 + n2))
+
+  def divide(a: Int, b: Int): Option[Int] =
+    if b == 0 then None else Some(a/b)
+
+  def divideOptions(a: Option[Int], b: Option[Int]): Option[Int] = for
+    n1 <- a
+    n2 <- b
+    res <- divide(n1,n2)
+  yield res
+
+object Monads:
+  import scala.util.Try
+
+  val opt = for
+    x <- Some(1)
+    y <- Some(2)
+    z <- Some(3)
+  yield x + y + z
+
+  val seq = for
+    x <- Seq(1)
+    y <- Seq(2)
+    z <- Seq(3)
+  yield x + y + z
+
+  val try_ = for
+    x <- Try(1)
+    y <- Try(2)
+    z <- Try(3)
+  yield x + y + z
+
+  val a = for
+    x <- Seq(1,2,3) if x > 1 // Same as filter(_ > 1)
+  yield x
+
+  val b = for
+    (a,b) <- Seq(1,2,3).zip(Seq(4,5,6))
+  yield a + b
+    
 object App extends IOApp.Simple:
 
-  import FilmExercises.*
+  import Monads.*
 
   def stuff: List[Any] = List(
-    allFilmsFor
+    b
   )
 
   def run: IO[Unit] = for
