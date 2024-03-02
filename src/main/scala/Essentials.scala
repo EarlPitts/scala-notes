@@ -514,17 +514,16 @@ object Collections:
   List(1, 2, 3) ::: l // List concat
 
   // Maps
-  val m = Map(('a',1), ('b',2), ('c',3))
+  val m = Map(('a', 1), ('b', 2), ('c', 3))
   val m2 = Map("a" -> 1) + ("b" -> 2) + ("c" -> 3) + ("d" -> 4) + ("e" -> 5)
   m('a') // Map -> Int, throws an exception
   m.get('a') // Map -> Option[Int]
   m.getOrElse('a', -1)
   m.contains('a')
   m.size
-  m + (('c',4),('d',5)) // c gets replaced
+  m + (('c', 4), ('d', 5)) // c gets replaced
   m - ('c', 'd')
   m ++ m // intersection, empty map
-
 
 object FilmExercises:
   case class Film(name: String, yearOfRelease: Int, imdbRating: Double)
@@ -583,16 +582,27 @@ object FilmExercises:
 
   val nolanFilms = nolan.films.map(_.name)
   val allFilms = directors.flatMap(_.films.map(_.name))
-  val earliest = mcTiernan.films.foldRight(Int.MaxValue)((a: Film, b: Int) => math.min(a.yearOfRelease,b))
-  val highScores = directors.flatMap(_.films).sortWith((f1: Film, f2: Film) => f1.imdbRating > f2.imdbRating)
+  val earliest = mcTiernan.films.foldRight(Int.MaxValue)((a: Film, b: Int) =>
+    math.min(a.yearOfRelease, b)
+  )
+  val highScores = directors
+    .flatMap(_.films)
+    .sortWith((f1: Film, f2: Film) => f1.imdbRating > f2.imdbRating)
   val films = directors.flatMap(_.films)
   val average = films.map(_.imdbRating).sum / films.length
   // val tonight = for
   //   d <- directors
   //   films = d.films
   // yield films.traverse(f => IO.println(s"Tonigh only! ${f.name} by ${d.firstName}"))
-  val tn = directors.traverse(d => d.films.traverse(f => IO.println(s"Tonight only! ${f.name} by ${d.firstName}")))
-  val earliestByAny = directors.flatMap(_.films).sortWith((f1, f2) => f1.yearOfRelease < f2.yearOfRelease).head
+  val tn = directors.traverse(d =>
+    d.films.traverse(f =>
+      IO.println(s"Tonight only! ${f.name} by ${d.firstName}")
+    )
+  )
+  val earliestByAny = directors
+    .flatMap(_.films)
+    .sortWith((f1, f2) => f1.yearOfRelease < f2.yearOfRelease)
+    .head
 
   val nolanFilmsFor = for f <- nolan.films yield f.name
   val allFilmsFor = for
@@ -615,12 +625,12 @@ object Options:
     a.flatMap(n1 => b.map(n2 => n1 + n2))
 
   def divide(a: Int, b: Int): Option[Int] =
-    if b == 0 then None else Some(a/b)
+    if b == 0 then None else Some(a / b)
 
   def divideOptions(a: Option[Int], b: Option[Int]): Option[Int] = for
     n1 <- a
     n2 <- b
-    res <- divide(n1,n2)
+    res <- divide(n1, n2)
   yield res
 
 object Monads:
@@ -644,20 +654,70 @@ object Monads:
     z <- Try(3)
   yield x + y + z
 
-  val a = for
-    x <- Seq(1,2,3) if x > 1 // Same as filter(_ > 1)
-  yield x
+  val a =
+    for x <- Seq(1, 2, 3) if x > 1 // Same as filter(_ > 1)
+    yield x
 
-  val b = for
-    (a,b) <- Seq(1,2,3).zip(Seq(4,5,6))
-  yield a + b
-    
+  val b =
+    for (a, b) <- Seq(1, 2, 3).zip(Seq(4, 5, 6))
+    yield a + b
+
+object SetsAndMaps:
+  val people = Set("Alice", "Bob", "Charlie", "Derek", "Edith", "Fred")
+  val ages = Map(
+    "Alice" -> 20,
+    "Bob" -> 30,
+    "Charlie" -> 50,
+    "Derek" -> 40,
+    "Edith" -> 10,
+    "Fred" -> 60
+  )
+  val favoriteColors = Map(
+    "Bob" -> "green",
+    "Derek" -> "magenta",
+    "Fred" -> "yellow"
+  )
+  val favoriteLolcats = Map(
+    "Alice" -> "Long Cat",
+    "Charlie" -> "Ceiling Cat",
+    "Edith" -> "Cloud Cat",
+    "Fred" -> "cat"
+  )
+
+  def favoriteColor(p: String): Option[String] =
+    favoriteColors.get(p)
+
+  def favoriteColor2(p: String): String =
+    favoriteColors.getOrElse(p, "beige")
+
+  def printColors: IO[Unit] =
+    favoriteColors
+      .toList
+      .traverse_((p,c) => IO.println(s"${p}'s favorite is $c"))
+
+  def lookup[A,B](n: A, m: Map[A,B]): Option[B] =
+    m.get(n)
+
+  def colorOfOldest: String =
+    lookup(ages.maxBy(_._2)._1, favoriteColors).get
+
+  def union[A](s1: Set[A], s2: Set[A]): Set[A] =
+    s1.foldLeft(s2)(_ + _)
+
+  def unionMap[A,B: Monoid](m1: Map[A,B], m2: Map[A,B]): Map[A,B] =
+    def f(t: (A,B), as: Map[A,B]): Map[A,B] =
+      as.get(t._1) match
+        case None => as.updated(t._1,t._2)
+        case Some(b2) => as.updated(t._1,t._2 |+| b2)
+    m1.foldRight(m2)(f)
+
+
 object App extends IOApp.Simple:
 
-  import Monads.*
+  import SetsAndMaps.*
 
   def stuff: List[Any] = List(
-    b
+    unionMap(favoriteColors,favoriteLolcats)
   )
 
   def run: IO[Unit] = for
