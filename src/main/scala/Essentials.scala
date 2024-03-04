@@ -691,11 +691,10 @@ object SetsAndMaps:
     favoriteColors.getOrElse(p, "beige")
 
   def printColors: IO[Unit] =
-    favoriteColors
-      .toList
-      .traverse_((p,c) => IO.println(s"${p}'s favorite is $c"))
+    favoriteColors.toList
+      .traverse_((p, c) => IO.println(s"${p}'s favorite is $c"))
 
-  def lookup[A,B](n: A, m: Map[A,B]): Option[B] =
+  def lookup[A, B](n: A, m: Map[A, B]): Option[B] =
     m.get(n)
 
   def colorOfOldest: String =
@@ -704,20 +703,116 @@ object SetsAndMaps:
   def union[A](s1: Set[A], s2: Set[A]): Set[A] =
     s1.foldLeft(s2)(_ + _)
 
-  def unionMap[A,B: Monoid](m1: Map[A,B], m2: Map[A,B]): Map[A,B] =
-    def f(t: (A,B), as: Map[A,B]): Map[A,B] =
+  def unionMap[A, B: Monoid](m1: Map[A, B], m2: Map[A, B]): Map[A, B] =
+    def f(t: (A, B), as: Map[A, B]): Map[A, B] =
       as.get(t._1) match
-        case None => as.updated(t._1,t._2)
-        case Some(b2) => as.updated(t._1,t._2 |+| b2)
+        case None     => as.updated(t._1, t._2)
+        case Some(b2) => as.updated(t._1, t._2 |+| b2)
     m1.foldRight(m2)(f)
 
+object Randomness:
+  val subject = List("Noel", "The cat", "The dog")
+  val verb = List("wrote", "chased", "slept on")
+  val obj = List("the book", "the ball", "the bed")
+
+  val perms = subject.flatMap(s => verb.flatMap(v => obj.map(o => s"$s $v $o")))
+  val perms2 = for
+    s <- subject
+    v <- verb
+    o <- obj
+  yield s"$s $v $o"
+
+  val perms3 = for
+    s <- subject
+    v <- s match
+      case "Noel"    => verb
+      case "The cat" => List("meowed at", "chased", "slept on")
+      case "The dog" => List("barked at", "chased", "slept on")
+    o <- v match
+      case "wrote"     => List("the book", "the letter", "the code")
+      case "chased"    => List("the ball", "the dog", "the cat")
+      case "slept on"  => List("the bed", "the mat", "the train")
+      case "meowed at" => List("Noel", "the door", "the food cupboard")
+      case "barked at" => List("the postman", "the car", "the cat")
+  yield s"$s $v $o"
+
+  case class Distribution[A](events: List[(A, Double)]) derives Eq, Show:
+    def map[B](f: A => B): Distribution[B] =
+      Distribution(events.map { case (a, p) => (f(a), p) })
+
+    def flatMap[B](f: A => Distribution[B]): Distribution[B] =
+      Distribution(events.flatMap { case (a, p1) =>
+        f(a).events.map { case (b, p2) => (b, (p1 * p2)) }
+      }).compact.normalize
+
+    def normalize: Distribution[A] =
+      val totalWeight = events.map(_._2).sum
+      Distribution(events.map { case (a, p) => (a, (p / totalWeight)) })
+
+    def compact: Distribution[A] =
+      val distinct = events.map(_._1).distinct
+      def prob(a: A): Double =
+        events.filter(_._1 == a).map(_._2).sum
+      Distribution(distinct.map(a => (a, prob(a))))
+
+  object Distribution:
+    def uniform[A](events: List[A]): Distribution[A] =
+      val prob = 1.0 / events.length
+      Distribution(events.zip(LazyList.continually(prob)))
+
+    def discrete[A](events: List[(A,Double)]): Distribution[A] =
+      Distribution(events).compact.normalize
+
+  enum Coin:
+    case Heads, Tails
+
+  import Coin.*
+
+  val fairCoin: Distribution[Coin] = Distribution.uniform(List(Heads, Tails))
+  val threeFlips = for
+    c1 <- fairCoin
+    c2 <- fairCoin
+    c3 <- fairCoin
+  yield (c1, c2, c3)
+
+  enum Food:
+    case Raw, Cooked
+
+  enum Cat:
+    case Asleep, Harassing
+
+  import Food.*
+  import Cat.*
+
+  val food: Distribution[Food] =
+    Distribution.discrete(List((Cooked, 0.3), (Raw, 0.7)))
+  def cat(food: Food): Distribution[Cat] =
+    food match
+      case Cooked => Distribution.discrete(List((Harassing,0.8), (Asleep, 0.2)))
+      case Raw    => Distribution.discrete(List((Harassing,0.4), (Asleep, 0.6)))
+
+  val foodModel: Distribution[(Food, Cat)] = for
+    f <- food
+    c <- cat(f)
+  yield (f,c)
+
+  val pHarassing: Double =
+    foodModel.events.filter{
+      case ((_, Harassing), _) => true
+      case ((_, Asleep), _)    => false
+    }.map(_._2).sum
+
+  val pCookedGivenHarassin: Option[Double] =
+    foodModel.events.collectFirst[Double] {
+      case ((Cooked, Harassing), p) => p
+    }.map(_ / pHarassing)
 
 object App extends IOApp.Simple:
 
-  import SetsAndMaps.*
+  import Randomness.*
 
   def stuff: List[Any] = List(
-    unionMap(favoriteColors,favoriteLolcats)
+    pCookedGivenHarassin
   )
 
   def run: IO[Unit] = for
