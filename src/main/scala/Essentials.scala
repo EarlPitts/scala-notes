@@ -807,12 +807,39 @@ object Randomness:
       case ((Cooked, Harassing), p) => p
     }.map(_ / pHarassing)
 
+object TypeClasses:
+  // implicit val ordering: Ordering[Int] = Ordering.fromLessThan[Int](_ > _)
+
+  given Ordering[Int] = Ordering.fromLessThan[Int](_ > _)
+
+  implicit val absOrdering: Ordering[Int] = Ordering.fromLessThan[Int]((a,b) => math.abs(a) < math.abs(b))
+
+  final case class Rational(numerator: Int, Denominator: Int)
+
+  object Rational:
+    given Ordering[Rational] = Ordering.fromLessThan[Rational]( (r1,r2) =>
+      (r1,r2) match
+        case (Rational(n1,d1), Rational(n2,d2)) => d2 * n1 < d1 * n2)
+
+  final case class MyOrder(units: Int, unitPrice: Double):
+    val totalPrice: Double = units * unitPrice
+
+  object MyOrder:
+    given Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
+        o1.totalPrice < o2.totalPrice)
+
+  object OrderInstances:
+    implicit val byNumber: Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
+        o1.units < o2.units)
+    implicit val byPrice: Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
+        o1.unitPrice < o2.unitPrice)
+
 object App extends IOApp.Simple:
 
-  import Randomness.*
+  import TypeClasses.*
 
   def stuff: List[Any] = List(
-    pCookedGivenHarassin
+    List(MyOrder(1,2), MyOrder(2,2), MyOrder(3,2), MyOrder(4,1)).sorted
   )
 
   def run: IO[Unit] = for
