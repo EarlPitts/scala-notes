@@ -760,7 +760,7 @@ object Randomness:
       val prob = 1.0 / events.length
       Distribution(events.zip(LazyList.continually(prob)))
 
-    def discrete[A](events: List[(A,Double)]): Distribution[A] =
+    def discrete[A](events: List[(A, Double)]): Distribution[A] =
       Distribution(events).compact.normalize
 
   enum Coin:
@@ -788,51 +788,59 @@ object Randomness:
     Distribution.discrete(List((Cooked, 0.3), (Raw, 0.7)))
   def cat(food: Food): Distribution[Cat] =
     food match
-      case Cooked => Distribution.discrete(List((Harassing,0.8), (Asleep, 0.2)))
-      case Raw    => Distribution.discrete(List((Harassing,0.4), (Asleep, 0.6)))
+      case Cooked =>
+        Distribution.discrete(List((Harassing, 0.8), (Asleep, 0.2)))
+      case Raw => Distribution.discrete(List((Harassing, 0.4), (Asleep, 0.6)))
 
   val foodModel: Distribution[(Food, Cat)] = for
     f <- food
     c <- cat(f)
-  yield (f,c)
+  yield (f, c)
 
   val pHarassing: Double =
-    foodModel.events.filter{
-      case ((_, Harassing), _) => true
-      case ((_, Asleep), _)    => false
-    }.map(_._2).sum
+    foodModel.events
+      .filter {
+        case ((_, Harassing), _) => true
+        case ((_, Asleep), _)    => false
+      }
+      .map(_._2)
+      .sum
 
   val pCookedGivenHarassin: Option[Double] =
-    foodModel.events.collectFirst[Double] {
-      case ((Cooked, Harassing), p) => p
-    }.map(_ / pHarassing)
+    foodModel.events
+      .collectFirst[Double] { case ((Cooked, Harassing), p) =>
+        p
+      }
+      .map(_ / pHarassing)
 
 object TypeClasses:
   // implicit val ordering: Ordering[Int] = Ordering.fromLessThan[Int](_ > _)
 
   given Ordering[Int] = Ordering.fromLessThan[Int](_ > _)
 
-  implicit val absOrdering: Ordering[Int] = Ordering.fromLessThan[Int]((a,b) => math.abs(a) < math.abs(b))
+  implicit val absOrdering: Ordering[Int] =
+    Ordering.fromLessThan[Int]((a, b) => math.abs(a) < math.abs(b))
 
   final case class Rational(numerator: Int, Denominator: Int)
 
   object Rational:
-    given Ordering[Rational] = Ordering.fromLessThan[Rational]( (r1,r2) =>
-      (r1,r2) match
-        case (Rational(n1,d1), Rational(n2,d2)) => d2 * n1 < d1 * n2)
+    given Ordering[Rational] = Ordering.fromLessThan[Rational]((r1, r2) =>
+      (r1, r2) match
+        case (Rational(n1, d1), Rational(n2, d2)) => d2 * n1 < d1 * n2
+    )
 
   final case class MyOrder(units: Int, unitPrice: Double):
     val totalPrice: Double = units * unitPrice
 
   object MyOrder:
-    given Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
-        o1.totalPrice < o2.totalPrice)
+    given Ordering[MyOrder] =
+      Ordering.fromLessThan((o1, o2) => o1.totalPrice < o2.totalPrice)
 
   object OrderInstances:
-    implicit val byNumber: Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
-        o1.units < o2.units)
-    implicit val byPrice: Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
-        o1.unitPrice < o2.unitPrice)
+    implicit val byNumber: Ordering[MyOrder] =
+      Ordering.fromLessThan((o1, o2) => o1.units < o2.units)
+    implicit val byPrice: Ordering[MyOrder] =
+      Ordering.fromLessThan((o1, o2) => o1.unitPrice < o2.unitPrice)
 
   trait MyEqual[A]:
     def equal(a: A, b: A): Boolean
@@ -863,12 +871,12 @@ object TypeClasses:
     def toHtml(i: Int) = s"<p>$i<\\p>"
 
   trait Functor[F[_]]:
-    def map[A,B](fa: F[A])(f: A => B): F[B]
+    def map[A, B](fa: F[A])(f: A => B): F[B]
 
   given Functor[List] with
-    def map[A,B](fa: List[A])(f: A => B): List[B] =
+    def map[A, B](fa: List[A])(f: A => B): List[B] =
       fa match
-        case Nil => Nil
+        case Nil     => Nil
         case a :: as => f(a) :: map(as)(f)
 
   object HtmlUtil:
@@ -881,7 +889,7 @@ object TypeClasses:
 
     // def toHtml[A](in: A)(implicit writer: HtmlWriter[A]): String =
     //   writer.toHtml(in)
-  
+
   // object MyEqual:
   //   def apply[A](a: A, b: A)(implicit instance: MyEqual[A]): Boolean =
   //     instance.equal(a,b)
@@ -890,15 +898,71 @@ object TypeClasses:
     def apply[A](implicit instance: MyEqual[A]): MyEqual[A] =
       instance
 
+  extension (i: Int)
+    def yeah(): Unit = (1 to i).toList.foreach(_ => println("yeah"))
+    // def yeah() = (1 to i).toList.traverse_(IO.println("yeah"))
+
+  extension (i: Int)
+    def times(f: Int => Unit): Unit = (1 to i).toList.foreach(i => f(i))
+
+object JsonSerialization:
+
+  enum JsValue derives Eq, Show:
+    case JsObject(values: Map[String, JsValue])
+    case JsString(value: String)
+
+  import JsValue.*
+
+  given Show[JsString] with
+    def show(j: JsString): String =
+      "\"" + j.value.replaceAll("\\|\"", "\\\\$1") + "\""
+
+  given Show[JsObject] with
+    def show(j: JsObject): String =
+      j.values
+        .map { case (name, value) => "\"" + name + "\":" + value.show }
+        .mkString("{", ",", "}")
+
+  trait Serializable[A]:
+    def serialize(a: A): JsValue
+
+  object Serializable:
+    def apply[A](implicit instance: Serializable[A]): Serializable[A] = instance
+
+  given Serializable[Anonymous] with
+    def serialize(a: Anonymous): JsValue = a match
+      case Anonymous(id, createdAt) =>
+        JsObject(
+          Map(
+            "id" -> JsString(id.show),
+            "createdAt" -> JsString(createdAt.toString())
+          )
+        )
+
+  given Serializable[User] with
+    def serialize(a: User): JsValue = a match
+      case User(id, email, createdAt) =>
+        JsObject(
+          Map(
+            "id" -> JsString(id.show),
+            "email" -> JsString(email.show),
+            "createdAt" -> JsString(createdAt.toString())
+          )
+        )
+
+  given Serializable[Visitor] with
+    def serialize(v: Visitor) = v match
+      case anon: Anonymous => Serializable[Anonymous].serialize(anon)
+      case user: User      => Serializable[User].serialize(user)
+
 object App extends IOApp.Simple:
 
-  import TypeClasses.*
-  import EqInstances.nameEq
+  import JsonSerialization.*
+  import JsonSerialization.JsValue.*
 
   def stuff: List[Any] = List(
-    HtmlWriter[Int].toHtml(3),
-    Functor[List].map(List(1))(n => n + 1),
-    MyEqual[NewPerson].equal(NewPerson("c","b"), NewPerson("a","b"))
+    Seq(Anonymous("001", new Date), User("003", "dave@xample.com", new Date))
+      .map(v => Serializable[Visitor].serialize(v).show)
   )
 
   def run: IO[Unit] = for
