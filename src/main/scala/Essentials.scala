@@ -834,12 +834,71 @@ object TypeClasses:
     implicit val byPrice: Ordering[MyOrder] = Ordering.fromLessThan((o1,o2) =>
         o1.unitPrice < o2.unitPrice)
 
+  trait MyEqual[A]:
+    def equal(a: A, b: A): Boolean
+
+  case class NewPerson(name: String, email: String) derives Eq
+
+  object EqInstances:
+    implicit object nameEq extends MyEqual[NewPerson]:
+      def equal(a: NewPerson, b: NewPerson) = a.name == b.name
+
+    implicit object emailEq extends MyEqual[NewPerson]:
+      def equal(a: NewPerson, b: NewPerson) = a.email == b.email
+
+  // given MyEqual[Person] with
+  //   def equal(a: Person, b: Person): Boolean =
+  //     a.name == b.name
+
+  trait HtmlWriter[A]:
+    def toHtml(in: A): String
+
+  implicit object PersonWriter extends HtmlWriter[NewPerson]:
+    def toHtml(p: NewPerson) = s"${p.name} ${p.email}"
+
+  given HtmlWriter[NewPerson] with
+    def toHtml(p: NewPerson) = s"${p.name} ${p.email}"
+
+  given HtmlWriter[Int] with
+    def toHtml(i: Int) = s"<p>$i<\\p>"
+
+  trait Functor[F[_]]:
+    def map[A,B](fa: F[A])(f: A => B): F[B]
+
+  given Functor[List] with
+    def map[A,B](fa: List[A])(f: A => B): List[B] =
+      fa match
+        case Nil => Nil
+        case a :: as => f(a) :: map(as)(f)
+
+  object HtmlUtil:
+    def htmlify[A](data: A)(implicit writer: HtmlWriter[A]): String =
+      writer.toHtml(data)
+
+  object HtmlWriter:
+    def apply[A](implicit writer: HtmlWriter[A]): HtmlWriter[A] =
+      writer
+
+    // def toHtml[A](in: A)(implicit writer: HtmlWriter[A]): String =
+    //   writer.toHtml(in)
+  
+  // object MyEqual:
+  //   def apply[A](a: A, b: A)(implicit instance: MyEqual[A]): Boolean =
+  //     instance.equal(a,b)
+
+  object MyEqual:
+    def apply[A](implicit instance: MyEqual[A]): MyEqual[A] =
+      instance
+
 object App extends IOApp.Simple:
 
   import TypeClasses.*
+  import EqInstances.nameEq
 
   def stuff: List[Any] = List(
-    List(MyOrder(1,2), MyOrder(2,2), MyOrder(3,2), MyOrder(4,1)).sorted
+    HtmlWriter[Int].toHtml(3),
+    Functor[List].map(List(1))(n => n + 1),
+    MyEqual[NewPerson].equal(NewPerson("c","b"), NewPerson("a","b"))
   )
 
   def run: IO[Unit] = for
