@@ -1,4 +1,4 @@
-package scalaWithCats
+package intro
 
 
 import cats.implicits._
@@ -147,7 +147,7 @@ object EqualSyntax:
     def =!=(a: A)(implicit instance: Equal[A]) = !(value === a)
 
 def sajt: List[String] =
-  List("sajt","loszar") >>= ((s: String) => List("finom " ++ s))
+  List("one","two") >>= ((s: String) => List("number " ++ s))
 
 sealed trait MyList[+A]
 case object Nil extends MyList
