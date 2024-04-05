@@ -62,11 +62,11 @@ object ContravariantFunctor {
     given Printable[String] with
       def format(a: String) = s"'$a'"
 
-    given Printable[Int] with
-      def format(a: Int): String = s"$a"
+    given Printable[Boolean] with
+      def format(a: Boolean): String = if a then "yes" else "no"
 
-    given Printable[Box[Int]] with
-      def format(a: Int): String = s"$a"
+    implicit def boxPrintable[A](implicit instance: Printable[A]): Printable[Box[A]] =
+      instance.contramap(_.value)
   }
 
   def format[A](value: A)(implicit p: Printable[A]): String =
@@ -91,7 +91,5 @@ def main: Unit =
 
   import ContravariantFunctor._
 
-  println(format(3))
-  println(Printable[Int].contramap[Double](_.toInt).format(3.0))
   println(format("sajt"))
 
