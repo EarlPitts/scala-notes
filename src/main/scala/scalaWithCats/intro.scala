@@ -176,6 +176,13 @@ def main: Unit =
   println(Option(Cat("jani", 12, "black")) === Option.empty[Cat])
   println(Cons(1, Cons(2, Nil)))
 
+  println(Monoid[Int].combine(2,3))
+  println(2.combine(3))
+  println(2 |+| 3)
+
+  println(Option.empty |+| Option(3))
+  println("jdfls" |+| "fjdsl")
+
   // println(Json.toJson("sajt"))
   // println("sajt".toJson)
   // println(Show[Json].show(Encodable[String].encode("sajt")))
