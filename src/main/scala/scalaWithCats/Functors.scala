@@ -71,6 +71,12 @@ object ContravariantFunctor {
 
   def format[A](value: A)(implicit p: Printable[A]): String =
     p.format(value)
+
+  // You can create typeclass instances "on-the-fly" with contramap for types
+  // you don't already have an instance for, but have a homomorphism to some other
+  // type thay has an instance
+  def x = 
+    Show[String].contramap((sym: Symbol) => s"${sym.name}").show(Symbol("sajt"))
 }
 
 @main
@@ -93,3 +99,4 @@ def main: Unit =
 
   println(format("sajt"))
 
+  println(Show[String].contramap((sym: Symbol) => s"${sym.name}").show(Symbol("sajt")))

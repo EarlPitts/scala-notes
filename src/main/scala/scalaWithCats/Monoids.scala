@@ -60,6 +60,18 @@ object SuperAdder {
   case class Order(totlCost: Double, quantity: Double)
 }
 
+object Invaritan {
+
+  import cats._
+  import cats.syntax.invariant._
+  import cats.instances._
+
+  // Symbols are like atoms in other languages
+  implicit val symbolMonoid: cats.Monoid[Symbol] =
+    cats.Monoid[String].imap(Symbol.apply)(_.name)
+
+}
+
 @main
 def main: Unit =
   import MonoidSyntax._

@@ -67,6 +67,7 @@ trait Printable[A]:
   def format(value: A): String
     
 object Printable:
+  def apply[A](implicit instance: Printable[A]) = instance
 
   def format[A](value: A)(implicit instance: Printable[A]): String =
     instance.format(value)
@@ -182,6 +183,8 @@ def main: Unit =
 
   println(Option.empty |+| Option(3))
   println("jdfls" |+| "fjdsl")
+
+  println("sj".eqv("sajt"))
 
   // println(Json.toJson("sajt"))
   // println("sajt".toJson)
