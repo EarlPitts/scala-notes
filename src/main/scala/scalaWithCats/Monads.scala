@@ -3,9 +3,13 @@ package Monads
 // import cats.syntax.MonadOps
 // import cats.implicits._
 
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+
 trait Monad[M[_]] {
   def pure[A](a: A): M[A]
   def bind[A,B](ma: M[A])(f: A => M[B]): M[B]
+  def map[A,B](ma: M[A])(f: A => B): M[B] = bind(ma)((a: A) => pure(f(a)))
 }
   
 object Monad {
@@ -47,3 +51,6 @@ object Monad {
 @main
 def main: Unit =
   println(Monad[List].bind(List(1,2,3))(List(_,2)))
+  println(Monad[List].map(List(1,2,3))(_ + 1))
+  println(Monad[Option].map(Some(2))(_ + 2))
+  println(Monad[Option].map(None)((x: Int) => x + 2))

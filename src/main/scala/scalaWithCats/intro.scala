@@ -183,9 +183,3 @@ def main: Unit =
 
   println(Option.empty |+| Option(3))
   println("jdfls" |+| "fjdsl")
-
-  println("sj".eqv("sajt"))
-
-  // println(Json.toJson("sajt"))
-  // println("sajt".toJson)
-  // println(Show[Json].show(Encodable[String].encode("sajt")))
