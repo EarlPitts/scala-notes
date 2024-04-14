@@ -11,7 +11,7 @@ trait Monad[M[_]] {
   def bind[A,B](ma: M[A])(f: A => M[B]): M[B]
   def map[A,B](ma: M[A])(f: A => B): M[B] = bind(ma)((a: A) => pure(f(a)))
 }
-  
+
 object Monad {
   def apply[M[_]](implicit instance: Monad[M]): Monad[M] = instance
 
@@ -29,7 +29,7 @@ object Monad {
       case Nil => Nil
       case as => join(as.map(f))
   }
-  
+
   // TODO Figure this out
   // type EitherA[A] = Either[A,_]
   // implicit def EitherMonad: Monad[EitherA] = new Monad[EitherA] {
@@ -47,6 +47,131 @@ object Monad {
 //
 // }
 
+object Monading {
+  import cats._
+  import cats.implicits._
+
+  def sumSquares[F[_]: cats.Monad](a: F[Int], b: F[Int]): F[Int] = for {
+    x <- a
+    y <- b
+  } yield x + y
+
+}
+
+object SecretIdentity {
+  type Id[A] = A
+
+  implicit val IdMonad: Monad[Id] = new Monad[Id] {
+    def pure[A](a: A): Id[A] = a
+    def bind[A,B](ma: Id[A])(f: A => Id[B]): Id[B] = f(ma)
+  }
+}
+
+object CountPositives {
+  import cats._
+  import cats.implicits._
+
+  def countPositive(ns: List[Int]): Either[String, Int] =
+    ns.foldLeft(0.asRight[String]) { (acc, n) =>
+      if n < 0
+      then Left("Negative, stopping")
+      else acc.map(_ + 1)
+    }
+
+  def countPositive2(ns: List[Int]): Option[Int] =
+    ns.foldLeft(Option(0)) { (acc, n) =>
+      if n < 0
+      then None
+      else acc.map(_ + 1)
+    }
+}
+
+object EitherStuff {
+  import cats._
+  import cats.implicits._
+  import scala.util.Try
+
+  // Using either to handle exceptions
+  println(Either.catchOnly[NumberFormatException]("foo".toInt))
+  println(Either.catchNonFatal(sys.error("bad")))
+
+  // Converting to either
+  println(Either.fromTry(Try(sys.error("bad"))))
+  println(Either.fromOption(None, "bad"))
+
+  // Transforming either
+  println("Error".asLeft[Int].getOrElse(0))
+  println("Error".asLeft[Int].orElse(2.asRight[String]))
+  println(-1.asRight[String].ensure("Must be non-negative!")(_ > 0))
+
+  // Error handling
+  println("Error".asLeft[Int].recover {
+    case _ : String => -1
+  })
+  println("Error".asLeft[Int].recoverWith {
+    case _ : String => Right(-1)
+  })
+}
+
+object Errors {
+  import scala.util.Try
+  import cats._
+  import cats.implicits._
+
+  def validateAdult[F[_]](age: Int)(implicit me: MonadError[F, Throwable]): F[Int] =
+    if age >= 18
+    then me.pure(age)
+    // then age.pure[F]
+    else me.raiseError(IllegalArgumentException("Age must be over 18"))
+    // else IllegalArgumentException("Age must be over 18").raiseError[F, Int]
+
+  def validateAdult2[F[_]: MonadThrow](age: Int): F[Int] =
+    if age >= 18
+    then age.pure[F]
+    else IllegalArgumentException("Age must be over 18").raiseError[F, Int]
+
+  println(validateAdult[Try](18))
+  println(validateAdult[Try](8))
+
+  type ExceptionOr[A] = Either[Throwable, A]
+  println(validateAdult[ExceptionOr](-1))
+}
+
+object EvalMonad {
+  // Call-by-value
+  val x = {
+    println("ahoy")
+    2
+  }
+
+  // Call-by-name
+  def y = {
+    println("ahoy")
+    2
+  }
+
+  // Call-by-need
+  lazy val z = {
+    println("ahoy")
+    2
+  }
+
+  import cats.Eval
+
+  // You can use the `value` field to extract their value
+  val now    = Eval.now(math.random + 1000)
+  val always = Eval.always(math.random + 3000)
+  val later  = Eval.later(math.random + 2000)
+
+  def foldRight[A,B](as: List[A], acc: B)(fn: (A, B) => B): Eval[B] =
+    as match {
+      case head :: tail =>
+        foldRight(tail, acc)(fn).map(fn(head, _))
+      case Nil =>
+        Eval.now(acc)
+    }
+}
+
 
 @main
 def main: Unit =
@@ -54,3 +179,16 @@ def main: Unit =
   println(Monad[List].map(List(1,2,3))(_ + 1))
   println(Monad[Option].map(Some(2))(_ + 2))
   println(Monad[Option].map(None)((x: Int) => x + 2))
+  println(Monading.sumSquares(Option(3), Option(4)))
+  import cats.Id
+  println(Monading.sumSquares(Id(2), Id(3)))
+  import SecretIdentity._
+  println(Monad[Id].pure(3))
+  println(Monad[Id].bind(3)(_ + 2))
+  println(CountPositives.countPositive(List(1,2,3,4)))
+  println(CountPositives.countPositive(List(1,2,3,-1,4)))
+  println(CountPositives.countPositive2(List(1,2,3,4)))
+  println(CountPositives.countPositive2(List(1,2,3,-1,4)))
+  EitherStuff
+  Errors
+  EvalMonad
