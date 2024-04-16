@@ -172,6 +172,37 @@ object EvalMonad {
     }
 }
 
+object WriterMonad {
+  import cats.data.Writer
+  import cats._
+  import cats.implicits._
+
+  println(Writer(Vector(
+    "One",
+    "Two"
+  ), 1859))
+
+  type Logged[A] = Writer[Vector[String], A]
+
+  // Needs a monoid instance in scope
+  println(123.pure[Logged])
+
+  def sajt: Writer[List[Int], Int] = for {
+    _ <- List(1,2,3).tell
+    _ <- List(3,4,5).tell
+  } yield 2
+
+  def sajt2: Writer[List[Int], Int] =
+    List(1,2,3).tell.flatMap(_ =>
+    List(3,4,5).tell.map(_ =>
+    2))
+
+  println(sajt.run)
+  println(sajt.written)
+  println(sajt.value)
+
+}
+
 
 @main
 def main: Unit =
@@ -192,3 +223,4 @@ def main: Unit =
   EitherStuff
   Errors
   EvalMonad
+  WriterMonad
