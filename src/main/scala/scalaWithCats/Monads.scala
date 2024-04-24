@@ -5,11 +5,14 @@ package Monads
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
+import scala.util.Success
+import scala.util.Failure
 
 trait Monad[M[_]] {
   def pure[A](a: A): M[A]
-  def bind[A,B](ma: M[A])(f: A => M[B]): M[B]
-  def map[A,B](ma: M[A])(f: A => B): M[B] = bind(ma)((a: A) => pure(f(a)))
+  def bind[A, B](ma: M[A])(f: A => M[B]): M[B]
+  def map[A, B](ma: M[A])(f: A => B): M[B] = bind(ma)((a: A) => pure(f(a)))
 }
 
 object Monad {
@@ -17,17 +20,18 @@ object Monad {
 
   implicit val OptionMonad: Monad[Option] = new Monad[Option] {
     def pure[A](a: A) = Some(a)
-    def bind[A,B](ma: Option[A])(f: A => Option[B]): Option[B] = ma match
+    def bind[A, B](ma: Option[A])(f: A => Option[B]): Option[B] = ma match
       case Some(a) => f(a)
       case None    => None
   }
 
   implicit val ListMonad: Monad[List] = new Monad[List] {
-    def join[A](ls: List[List[A]]): List[A] = ls.foldRight(Nil)((l: List[A], acc: List[A]) => l ++ acc)
+    def join[A](ls: List[List[A]]): List[A] =
+      ls.foldRight(Nil)((l: List[A], acc: List[A]) => l ++ acc)
     def pure[A](a: A) = List(a)
-    def bind[A,B](as: List[A])(f: A => List[B]): List[B] = as match
+    def bind[A, B](as: List[A])(f: A => List[B]): List[B] = as match
       case Nil => Nil
-      case as => join(as.map(f))
+      case as  => join(as.map(f))
   }
 
   // TODO Figure this out
@@ -56,16 +60,16 @@ object Monading {
     y <- b
   } yield x + y
 
-  println(Monad[List].bind(List(1,2,3))(List(_,2)))
-  println(Monad[List].map(List(1,2,3))(_ + 1))
+  println(Monad[List].bind(List(1, 2, 3))(List(_, 2)))
+  println(Monad[List].map(List(1, 2, 3))(_ + 1))
   println(Monad[Option].map(Some(2))(_ + 2))
   println(Monad[Option].map(None)((x: Int) => x + 2))
   println(Monading.sumSquares(Option(3), Option(4)))
   println(Monading.sumSquares(Id(2), Id(3)))
-  println(CountPositives.countPositive(List(1,2,3,4)))
-  println(CountPositives.countPositive(List(1,2,3,-1,4)))
-  println(CountPositives.countPositive2(List(1,2,3,4)))
-  println(CountPositives.countPositive2(List(1,2,3,-1,4)))
+  println(CountPositives.countPositive(List(1, 2, 3, 4)))
+  println(CountPositives.countPositive(List(1, 2, 3, -1, 4)))
+  println(CountPositives.countPositive2(List(1, 2, 3, 4)))
+  println(CountPositives.countPositive2(List(1, 2, 3, -1, 4)))
 
 }
 
@@ -74,7 +78,7 @@ object SecretIdentity {
 
   implicit val IdMonad: Monad[Id] = new Monad[Id] {
     def pure[A](a: A): Id[A] = a
-    def bind[A,B](ma: Id[A])(f: A => Id[B]): Id[B] = f(ma)
+    def bind[A, B](ma: Id[A])(f: A => Id[B]): Id[B] = f(ma)
   }
 }
 
@@ -124,11 +128,11 @@ object EitherStuff {
   println(-1.asRight[String].ensure("Must be non-negative!")(_ > 0))
 
   // Error handling
-  println("Error".asLeft[Int].recover {
-    case _ : String => -1
+  println("Error".asLeft[Int].recover { case _: String =>
+    -1
   })
-  println("Error".asLeft[Int].recoverWith {
-    case _ : String => Right(-1)
+  println("Error".asLeft[Int].recoverWith { case _: String =>
+    Right(-1)
   })
 }
 
@@ -137,7 +141,9 @@ object Errors {
   import cats._
   import cats.implicits._
 
-  def validateAdult[F[_]](age: Int)(implicit me: MonadError[F, Throwable]): F[Int] =
+  def validateAdult[F[_]](
+      age: Int
+  )(implicit me: MonadError[F, Throwable]): F[Int] =
     if age >= 18
     then me.pure(age)
     // then age.pure[F]
@@ -178,11 +184,11 @@ object EvalMonad {
   import cats.Eval
 
   // You can use the `value` field to extract their value
-  val now    = Eval.now(math.random + 1000)
+  val now = Eval.now(math.random + 1000)
   val always = Eval.always(math.random + 3000)
-  val later  = Eval.later(math.random + 2000)
+  val later = Eval.later(math.random + 2000)
 
-  def foldRight[A,B](as: List[A], acc: B)(fn: (A, B) => B): Eval[B] =
+  def foldRight[A, B](as: List[A], acc: B)(fn: (A, B) => B): Eval[B] =
     as match {
       case head :: tail =>
         foldRight(tail, acc)(fn).map(fn(head, _))
@@ -196,10 +202,15 @@ object WriterMonad {
   import cats._
   import cats.implicits._
 
-  println(Writer(Vector(
-    "One",
-    "Two"
-  ), 1859))
+  println(
+    Writer(
+      Vector(
+        "One",
+        "Two"
+      ),
+      1859
+    )
+  )
 
   type Logged[A] = Writer[Vector[String], A]
 
@@ -207,15 +218,13 @@ object WriterMonad {
   println(123.pure[Logged])
 
   def sajt: Writer[List[Int], Int] = for {
-    _ <- List(1,2,3).tell
-    _ <- List(3,4,5).tell
-    c <- 2.writer(List(3,4,5))
+    _ <- List(1, 2, 3).tell
+    _ <- List(3, 4, 5).tell
+    c <- 2.writer(List(3, 4, 5))
   } yield c
 
   def sajt2: Writer[List[Int], Int] =
-    List(1,2,3).tell.flatMap(_ =>
-    List(3,4,5).tell.map(_ =>
-    2))
+    List(1, 2, 3).tell.flatMap(_ => List(3, 4, 5).tell.map(_ => 2))
 
   val writer1: Logged[Int] = for {
     a <- 10.pure[Logged]
@@ -249,12 +258,14 @@ object WriterMonad {
   println(writer1.value)
 
   def slowly[A](body: => A) =
-    try body finally Thread.sleep(100)
+    try body
+    finally Thread.sleep(100)
 
   def factorial(n: Int): Logged[Int] = for {
-    ans <- if n == 0
-           then 1.pure[Logged]
-           else slowly(factorial(n - 1).map(_ * n))
+    ans <-
+      if n == 0
+      then 1.pure[Logged]
+      else slowly(factorial(n - 1).map(_ * n))
     _ <- Vector(s"fact $n $ans").tell
   } yield ans
 
@@ -262,14 +273,113 @@ object WriterMonad {
   import scala.concurrent._
   import scala.concurrent.duration._
 
-  val res = Await.result(Future.sequence(Vector(
-    Future(factorial(5)),
-    Future(factorial(5))
-  )).map(_.map(_.written)), 5.seconds)
+  val res = Await.result(
+    Future
+      .sequence(
+        Vector(
+          Future(factorial(5)),
+          Future(factorial(5))
+        )
+      )
+      .map(_.map(_.written)),
+    5.seconds
+  )
 
   println(res)
 }
 
+object ReaderMonad {
+  import cats.data.Reader
+  import cats._
+  import cats.implicits._
+
+  case class Config(catNum: Int, cats: List[String])
+  case class Cat(name: String, food: String)
+
+  def sajt: Reader[Int, Int] = for {
+    a <- Reader[Int, Int](identity)
+  } yield a
+
+  val f: Reader[Config, String] =
+    Reader[Config, String](conf => s"${conf.cats}")
+  val g: Reader[Config, Int] = Reader[Config, Int](conf => conf.catNum)
+
+  def combineThem: Reader[Config, String] = for {
+    catNames <- f
+    catNum <- g
+  } yield s"$catNames and $catNum"
+
+  val catName: Reader[Cat, String] = Reader(c => c.name)
+  val catGreet: Reader[Cat, String] =
+    catName.map(name => s"Have a nice day, $name!")
+  val catFeed: Reader[Cat, String] =
+    Reader(c => s"Here is a nice bowl of ${c.food}!")
+
+  val catGreetAndFeed: Reader[Cat, String] = for {
+    greet <- catGreet
+    feed <- catFeed
+  } yield s"$greet $feed"
+
+  println(sajt.map(_ + 1).run(3))
+  println(combineThem.map(_.toUpperCase).run(Config(2, List("Fritzy", "Fred"))))
+  // These are equivalent
+  println(catGreetAndFeed(Cat("Jozsef", "Almaspite")))
+  println(catGreetAndFeed.run(Cat("Jozsef", "Almaspite")))
+}
+
+object ReaderLoginSystem {
+  import cats.data.Reader
+  import cats._
+  import cats.implicits._
+
+  case class Db(
+      usernames: Map[Int, String],
+      passwords: Map[String, String]
+  )
+
+  type DbReader[A] = Reader[Db, A]
+
+  def findUsername(userId: Int): DbReader[Option[String]] =
+    Reader(db => db.usernames.get(userId))
+    // Using the error-throwing API
+    // Reader(db =>
+    //   Try(db.usernames(userId)) match
+    //     case Success(value) => Some(value)
+    //     case Failure(_)     => None
+    // )
+
+  def checkPassword(username: String, password: String): DbReader[Boolean] =
+    Reader(db => db.passwords.get(username).contains(password))
+
+  def checkLogin(userId: Int, password: String): DbReader[Boolean] = for {
+    username <- findUsername(userId)
+    result <- username
+      .map { username =>
+        checkPassword(username, password)
+      }
+      .getOrElse(false.pure[DbReader])
+    // result <- username match
+    //   case Some(user) => checkPassword(user, password)
+    //   case None       => false.pure[DbReader]
+  } yield result
+
+  val users = Map(
+    1 -> "dade",
+    2 -> "kate",
+    3 -> "margo"
+  )
+
+  val passwords = Map(
+    "dade" -> "zerocool",
+    "kate" -> "acidburn",
+    "margo" -> "secret"
+  )
+
+  val db = Db(users, passwords)
+
+  println(checkLogin(1, "zerocool").run(db))
+  println(checkLogin(4, "davinci").run(db))
+}
 
 @main
 def main: Unit =
@@ -277,3 +387,5 @@ def main: Unit =
   // Errors
   // EvalMonad
   // WriterMonad
+  // ReaderMonad
+  ReaderLoginSystem
