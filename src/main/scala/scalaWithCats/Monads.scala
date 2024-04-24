@@ -48,13 +48,24 @@ object Monad {
 // }
 
 object Monading {
-  import cats._
+  import cats.Id
   import cats.implicits._
 
   def sumSquares[F[_]: cats.Monad](a: F[Int], b: F[Int]): F[Int] = for {
     x <- a
     y <- b
   } yield x + y
+
+  println(Monad[List].bind(List(1,2,3))(List(_,2)))
+  println(Monad[List].map(List(1,2,3))(_ + 1))
+  println(Monad[Option].map(Some(2))(_ + 2))
+  println(Monad[Option].map(None)((x: Int) => x + 2))
+  println(Monading.sumSquares(Option(3), Option(4)))
+  println(Monading.sumSquares(Id(2), Id(3)))
+  println(CountPositives.countPositive(List(1,2,3,4)))
+  println(CountPositives.countPositive(List(1,2,3,-1,4)))
+  println(CountPositives.countPositive2(List(1,2,3,4)))
+  println(CountPositives.countPositive2(List(1,2,3,-1,4)))
 
 }
 
@@ -65,6 +76,14 @@ object SecretIdentity {
     def pure[A](a: A): Id[A] = a
     def bind[A,B](ma: Id[A])(f: A => Id[B]): Id[B] = f(ma)
   }
+}
+
+object IdentityMonad {
+  import SecretIdentity._
+  import cats.Id
+
+  println(Monad[Id].pure(3))
+  println(Monad[Id].bind(3)(_ + 2))
 }
 
 object CountPositives {
@@ -190,37 +209,71 @@ object WriterMonad {
   def sajt: Writer[List[Int], Int] = for {
     _ <- List(1,2,3).tell
     _ <- List(3,4,5).tell
-  } yield 2
+    c <- 2.writer(List(3,4,5))
+  } yield c
 
   def sajt2: Writer[List[Int], Int] =
     List(1,2,3).tell.flatMap(_ =>
     List(3,4,5).tell.map(_ =>
     2))
 
-  println(sajt.run)
-  println(sajt.written)
-  println(sajt.value)
+  val writer1: Logged[Int] = for {
+    a <- 10.pure[Logged]
+    _ <- Vector("a", "b", "c").tell
+    b <- 32.writer(Vector("x", "y", "z"))
+  } yield a + b
 
+  // Transform the value in context
+  val writer2 = writer1.mapWritten(_.map(_.toUpperCase))
+
+  // Transform both
+  val writer3 = writer1.bimap(
+    log => log.map(_.toUpperCase),
+    res => res * 100
+  )
+
+  val writer4 = writer1.mapBoth { (log, res) =>
+    val log2 = log.map(_ + "!")
+    val res2 = res * 1000
+    (log2, res2)
+  }
+
+  // Change value in context to identity value
+  val writer5 = writer1.reset
+
+  // Swap values
+  val writer6 = writer1.swap
+
+  println(writer1.run)
+  println(writer1.written)
+  println(writer1.value)
+
+  def slowly[A](body: => A) =
+    try body finally Thread.sleep(100)
+
+  def factorial(n: Int): Logged[Int] = for {
+    ans <- if n == 0
+           then 1.pure[Logged]
+           else slowly(factorial(n - 1).map(_ * n))
+    _ <- Vector(s"fact $n $ans").tell
+  } yield ans
+
+  // println(factorial(5).run)
+  import scala.concurrent._
+  import scala.concurrent.duration._
+
+  val res = Await.result(Future.sequence(Vector(
+    Future(factorial(5)),
+    Future(factorial(5))
+  )).map(_.map(_.written)), 5.seconds)
+
+  println(res)
 }
 
 
 @main
 def main: Unit =
-  println(Monad[List].bind(List(1,2,3))(List(_,2)))
-  println(Monad[List].map(List(1,2,3))(_ + 1))
-  println(Monad[Option].map(Some(2))(_ + 2))
-  println(Monad[Option].map(None)((x: Int) => x + 2))
-  println(Monading.sumSquares(Option(3), Option(4)))
-  import cats.Id
-  println(Monading.sumSquares(Id(2), Id(3)))
-  import SecretIdentity._
-  println(Monad[Id].pure(3))
-  println(Monad[Id].bind(3)(_ + 2))
-  println(CountPositives.countPositive(List(1,2,3,4)))
-  println(CountPositives.countPositive(List(1,2,3,-1,4)))
-  println(CountPositives.countPositive2(List(1,2,3,4)))
-  println(CountPositives.countPositive2(List(1,2,3,-1,4)))
-  EitherStuff
-  Errors
-  EvalMonad
-  WriterMonad
+  // EitherStuff
+  // Errors
+  // EvalMonad
+  // WriterMonad
