@@ -395,12 +395,12 @@ object StateMonad {
   println(a.runA(2).value)
 
   // Each State instance represents a single state transition
-  val step1 = State[Int, String]{ num =>
+  val step1 = State[Int, String] { num =>
     val ans = num + 1
     (ans, s"Result of step 1 is $ans")
   }
 
-  val step2 = State[Int, String]{ num =>
+  val step2 = State[Int, String] { num =>
     val ans = num * 2
     (ans, s"Result of step 2 is $ans")
   }
@@ -408,11 +408,11 @@ object StateMonad {
   val both = for {
     a <- step1
     b <- step2
-  } yield (a,b)
+  } yield (a, b)
 
   val getting = State.get[Int]
   val setting = State.set[Int](20)
-  val puring = State.pure[Int,String]("Value")
+  val puring = State.pure[Int, String]("Value")
   val inspecting = State.inspect[Int, String](s => s"$s")
   val modifying = State.modify[Int](s => s + 1)
 
@@ -456,17 +456,34 @@ object StateCalculator {
     case Num(n: Int)
     case Error
 
-  def add(x: Term, y: Term): Term = (x,y) match
+  def op(operator: Term)(x: Term, y: Term): Term = (operator, x, y) match
+    case (Term.Plus, Term.Num(x), Term.Num(y))  => Term.Num(x + y)
+    case (Term.Minus, Term.Num(x), Term.Num(y)) => Term.Num(x - y)
+    case _                                      => Term.Error
+
+  def add(x: Term, y: Term): Term = (x, y) match
     case (Term.Num(x), Term.Num(y)) => Term.Num(x + y)
     case _                          => Term.Error
 
+  def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Term] = State.get
+    .map((s: Stack[Term]) =>
+      for {
+        (newStack, op1) <- s.pop
+        _ <- Some(State.set[Stack[Term]](newStack))
+        (newStack, op2) <- s.pop
+        _ <- Some(State.set[Stack[Term]](newStack))
+      } yield add(op1, op2)
+    )
+    .map(_.getOrElse(Term.Error))
+
   def calculator(terms: List[Term]): State[Stack[Term], Term] = terms match
-    case Nil     => State.get.map(_.peek.getOrElse(Term.Error))
-    case (t::ts) => t match
-      case Term.Plus => State.get.map(???)
-      case Term.Minus => ???
-      case Term.Num(n: Int) => ???
-      case Term.Error => ???
+    case Nil => State.get.map(_.peek.getOrElse(Term.Error))
+    case (t :: ts) =>
+      t match
+        case Term.Plus        => applyOperator(op(Term.Plus)) >> calculator(ts)
+        case Term.Minus       => applyOperator(op(Term.Minus)) >> calculator(ts)
+        case Term.Num(n: Int) => State.modify[Stack[Term]]((s: Stack[Term]) => s.push(Term.Num(n))) >> calculator(ts)
+        case Term.Error       => throw Error("Shouldn't happen")
 }
 
 @main
