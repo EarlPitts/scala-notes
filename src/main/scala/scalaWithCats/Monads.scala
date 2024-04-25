@@ -484,6 +484,8 @@ object StateCalculator {
         case Term.Minus       => applyOperator(op(Term.Minus)) >> calculator(ts)
         case Term.Num(n: Int) => State.modify[Stack[Term]]((s: Stack[Term]) => s.push(Term.Num(n))) >> calculator(ts)
         case Term.Error       => throw Error("Shouldn't happen")
+
+  println(calculator(List(Term.Num(1), Term.Num(2), Term.Plus)).run(Stack[Term](List())).value)
 }
 
 @main
@@ -494,4 +496,5 @@ def main: Unit =
   // WriterMonad
   // ReaderMonad
   // ReaderLoginSystem
-  StateMonad
+  // StateMonad
+  StateCalculator
