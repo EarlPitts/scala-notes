@@ -447,7 +447,7 @@ object StateCalculator {
   }
 
   object Stack {
-    def apply = new Stack(List())
+    def apply[A]: Stack[A] = Stack(List[A]())
   }
 
   enum Term:
@@ -461,31 +461,31 @@ object StateCalculator {
     case (Term.Minus, Term.Num(x), Term.Num(y)) => Term.Num(x - y)
     case _                                      => Term.Error
 
-  def add(x: Term, y: Term): Term = (x, y) match
-    case (Term.Num(x), Term.Num(y)) => Term.Num(x + y)
-    case _                          => Term.Error
-
-  def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Term] = State.get
-    .map((s: Stack[Term]) =>
-      for {
-        (newStack, op1) <- s.pop
-        _ <- Some(State.set[Stack[Term]](newStack))
-        (newStack, op2) <- s.pop
-        _ <- Some(State.set[Stack[Term]](newStack))
-      } yield add(op1, op2)
-    )
-    .map(_.getOrElse(Term.Error))
+  def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Unit] =
+    State.modify { (s: Stack[Term]) =>
+      Stack[Term](List({
+        (for {
+          (newStack, op1) <- s.pop
+          (newStack, op2) <- newStack.pop
+        } yield op(op1, op2)).getOrElse(Term.Error)
+      }))
+    }
 
   def calculator(terms: List[Term]): State[Stack[Term], Term] = terms match
     case Nil => State.get.map(_.peek.getOrElse(Term.Error))
     case (t :: ts) =>
       t match
-        case Term.Plus        => applyOperator(op(Term.Plus)) >> calculator(ts)
-        case Term.Minus       => applyOperator(op(Term.Minus)) >> calculator(ts)
-        case Term.Num(n: Int) => State.modify[Stack[Term]]((s: Stack[Term]) => s.push(Term.Num(n))) >> calculator(ts)
-        case Term.Error       => throw Error("Shouldn't happen")
+        case Term.Plus  => applyOperator(op(Term.Plus)) >> calculator(ts)
+        case Term.Minus => applyOperator(op(Term.Minus)) >> calculator(ts)
+        case Term.Num(n: Int) =>
+          State.modify[Stack[Term]]((s: Stack[Term]) =>
+            s.push(Term.Num(n))
+          ) >> calculator(ts)
+        case Term.Error => throw Error("Shouldn't happen")
 
-  println(calculator(List(Term.Num(1), Term.Num(2), Term.Plus)).run(Stack[Term](List())).value)
+  println(
+    calculator(List(Term.Num(3), Term.Num(2), Term.Minus, Term.Num(2), Term.Plus)).runA(Stack[Term]).value
+  )
 }
 
 @main
