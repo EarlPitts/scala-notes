@@ -428,6 +428,47 @@ object StateMonad {
   println(program.run(3).value)
 }
 
+object StateCalculator {
+  import cats._
+  import cats.implicits._
+  import cats.data.State
+
+  case class Stack[A](s: List[A]) {
+    def isEmpty: Boolean = s.isEmpty
+
+    def push(a: A) = Stack(a :: s)
+
+    def pop: Option[(Stack[A], A)] =
+      if isEmpty
+      then None
+      else Some((Stack(s.tail), s.head))
+
+    def peek: Option[A] = if isEmpty then None else Some(s.head)
+  }
+
+  object Stack {
+    def apply = new Stack(List())
+  }
+
+  enum Term:
+    case Plus
+    case Minus
+    case Num(n: Int)
+    case Error
+
+  def add(x: Term, y: Term): Term = (x,y) match
+    case (Term.Num(x), Term.Num(y)) => Term.Num(x + y)
+    case _                          => Term.Error
+
+  def calculator(terms: List[Term]): State[Stack[Term], Term] = terms match
+    case Nil     => State.get.map(_.peek.getOrElse(Term.Error))
+    case (t::ts) => t match
+      case Term.Plus => State.get.map(???)
+      case Term.Minus => ???
+      case Term.Num(n: Int) => ???
+      case Term.Error => ???
+}
+
 @main
 def main: Unit =
   // EitherStuff
