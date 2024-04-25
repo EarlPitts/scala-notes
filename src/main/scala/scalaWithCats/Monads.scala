@@ -381,6 +381,53 @@ object ReaderLoginSystem {
   println(checkLogin(4, "davinci").run(db))
 }
 
+object StateMonad {
+  import cats._
+  import cats.implicits._
+  import cats.data.State
+
+  val a: State[Int, String] =
+    State(n => (n, s"The state is $n"))
+
+  // The result is wrapped inside an Eval for stack-safety
+  println(a.run(2).value)
+  println(a.runS(2).value)
+  println(a.runA(2).value)
+
+  // Each State instance represents a single state transition
+  val step1 = State[Int, String]{ num =>
+    val ans = num + 1
+    (ans, s"Result of step 1 is $ans")
+  }
+
+  val step2 = State[Int, String]{ num =>
+    val ans = num * 2
+    (ans, s"Result of step 2 is $ans")
+  }
+
+  val both = for {
+    a <- step1
+    b <- step2
+  } yield (a,b)
+
+  val getting = State.get[Int]
+  val setting = State.set[Int](20)
+  val puring = State.pure[Int,String]("Value")
+  val inspecting = State.inspect[Int, String](s => s"$s")
+  val modifying = State.modify[Int](s => s + 1)
+
+  val program: State[Int, String] = for {
+    a <- State.get[Int]
+    _ <- State.modify[Int](_ * 2)
+    b <- State.get[Int]
+    _ <- State.modify[Int](_ + 2)
+    c <- State.get[Int]
+  } yield s"$a then $b then $c"
+
+  println(both.run(3).value)
+  println(program.run(3).value)
+}
+
 @main
 def main: Unit =
   // EitherStuff
@@ -388,4 +435,5 @@ def main: Unit =
   // EvalMonad
   // WriterMonad
   // ReaderMonad
-  ReaderLoginSystem
+  // ReaderLoginSystem
+  StateMonad
