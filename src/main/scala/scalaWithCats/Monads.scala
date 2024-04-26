@@ -453,6 +453,8 @@ object StateCalculator {
   enum Term:
     case Plus
     case Minus
+    case Mult
+    case Div
     case Num(n: Int)
     case CalcError
   import Term.*
@@ -460,6 +462,8 @@ object StateCalculator {
   def eval(operator: Term)(x: Term, y: Term): Term = (operator, x, y) match
     case (Plus, Num(x), Num(y))  => Num(y + x)
     case (Minus, Num(x), Num(y)) => Num(y - x)
+    case (Mult, Num(x), Num(y))  => Num(y * x)
+    case (Div, Num(x), Num(y))   => Num(y / x)
     case _                       => CalcError
 
   def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Unit] =
@@ -473,15 +477,18 @@ object StateCalculator {
     case Nil => State.get.map(_.peek.getOrElse(CalcError))
     case (t :: ts) =>
       t match
-        case Plus  => applyOperator(eval(Plus)) >> calculator(ts)
+        case Plus  => applyOperator(eval(Plus))  >> calculator(ts)
         case Minus => applyOperator(eval(Minus)) >> calculator(ts)
+        case Mult  => applyOperator(eval(Mult))  >> calculator(ts)
+        case Div   => applyOperator(eval(Div))   >> calculator(ts)
         case Num(n: Int) =>
           State.modify[Stack[Term]](s => s.push(Num(n))) >> calculator(ts)
         case CalcError => throw Error("Shouldn't happen")
 
   println(
     calculator(
-      List(Num(3), Num(2), Minus, Num(2), Plus)
+      //List(Num(3), Num(2), Minus, Num(2), Plus)
+      List(Num(1), Num(2), Plus, Num(3), Mult)
     ).runA(Stack[Term]).value
   )
 }
