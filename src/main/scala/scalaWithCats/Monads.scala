@@ -454,35 +454,34 @@ object StateCalculator {
     case Plus
     case Minus
     case Num(n: Int)
-    case Error
+    case CalcError
+  import Term.*
 
   def eval(operator: Term)(x: Term, y: Term): Term = (operator, x, y) match
-    case (Term.Plus, Term.Num(x), Term.Num(y))  => Term.Num(y + x)
-    case (Term.Minus, Term.Num(x), Term.Num(y)) => Term.Num(y - x)
-    case _                                      => Term.Error
+    case (Plus, Num(x), Num(y))  => Num(y + x)
+    case (Minus, Num(x), Num(y)) => Num(y - x)
+    case _                       => CalcError
 
   def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Unit] =
     State.modify { s =>
       (s.pop >>= ((newStack, op1) =>
         newStack.pop >>= ((newStack, op2) => newStack.push(op(op1, op2)).pure)
-      )).getOrElse(Stack[Term](List(Term.Error)))
+      )).getOrElse(Stack[Term](List(CalcError)))
     }
 
   def calculator(terms: List[Term]): State[Stack[Term], Term] = terms match
-    case Nil => State.get.map(_.peek.getOrElse(Term.Error))
+    case Nil => State.get.map(_.peek.getOrElse(CalcError))
     case (t :: ts) =>
       t match
-        case Term.Plus  => applyOperator(eval(Term.Plus)) >> calculator(ts)
-        case Term.Minus => applyOperator(eval(Term.Minus)) >> calculator(ts)
-        case Term.Num(n: Int) =>
-          State.modify[Stack[Term]](s =>
-            s.push(Term.Num(n))
-          ) >> calculator(ts)
-        case Term.Error => throw Error("Shouldn't happen")
+        case Plus  => applyOperator(eval(Plus)) >> calculator(ts)
+        case Minus => applyOperator(eval(Minus)) >> calculator(ts)
+        case Num(n: Int) =>
+          State.modify[Stack[Term]](s => s.push(Num(n))) >> calculator(ts)
+        case CalcError => throw Error("Shouldn't happen")
 
   println(
     calculator(
-      List(Term.Num(3), Term.Num(2), Term.Minus, Term.Num(2), Term.Plus)
+      List(Num(3), Num(2), Minus, Num(2), Plus)
     ).runA(Stack[Term]).value
   )
 }
