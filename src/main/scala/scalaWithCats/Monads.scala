@@ -477,20 +477,92 @@ object StateCalculator {
     case Nil => State.get.map(_.peek.getOrElse(CalcError))
     case (t :: ts) =>
       t match
-        case Plus  => applyOperator(eval(Plus))  >> calculator(ts)
+        case Plus  => applyOperator(eval(Plus)) >> calculator(ts)
         case Minus => applyOperator(eval(Minus)) >> calculator(ts)
-        case Mult  => applyOperator(eval(Mult))  >> calculator(ts)
-        case Div   => applyOperator(eval(Div))   >> calculator(ts)
+        case Mult  => applyOperator(eval(Mult)) >> calculator(ts)
+        case Div   => applyOperator(eval(Div)) >> calculator(ts)
         case Num(n: Int) =>
           State.modify[Stack[Term]](s => s.push(Num(n))) >> calculator(ts)
         case CalcError => throw Error("Shouldn't happen")
 
   println(
     calculator(
-      //List(Num(3), Num(2), Minus, Num(2), Plus)
+      // List(Num(3), Num(2), Minus, Num(2), Plus)
       List(Num(1), Num(2), Plus, Num(3), Mult)
     ).runA(Stack[Term]).value
   )
+}
+
+object BetterStateCalculator {
+  import cats._
+  import cats.implicits._
+  import cats.data.State
+
+  type CalcState[A] = State[List[Int], A]
+
+  def operand(n: Int): CalcState[Int] =
+    State[List[Int], Int] { stack => (n :: stack, n) }
+
+  def operator(op: (Int, Int) => Int): CalcState[Int] =
+    State[List[Int], Int] {
+      case b :: a :: t =>
+        val ans = op(a, b)
+        (ans :: t, ans)
+
+      case _ => sys.error("Oh no!")
+    }
+
+  def evalOne(sym: String): CalcState[Int] = sym match
+    case "+" => operator(_ + _)
+    case "-" => operator(_ - _)
+    case "*" => operator(_ * _)
+    case "/" => operator(_ / _)
+    case n   => operand(n.toInt)
+
+  println(evalOne("42").runA(Nil).value)
+
+  val program = for {
+    _ <- evalOne("1")
+    _ <- evalOne("2")
+    _ <- evalOne("+")
+    _ <- evalOne("1")
+    ans <- evalOne("+")
+  } yield ans
+
+  // def evalAll(input: List[String]): CalcState[Int] = input match
+  //   case Nil     => State[List[Int], Int] { case res :: Nil => (Nil, res) }
+  //   case s :: ss => evalOne(s) >> evalAll(ss)
+
+  def evalAll(input: List[String]): CalcState[Int] =
+    input.foldLeft(0.pure[CalcState])(_ >> evalOne(_))
+
+  def evalInput(input: String) =
+    evalAll(input.split(" ").toList).runA(Nil).value
+
+  println(program.runA(Nil).value)
+  println(evalAll(List("1", "2", "+", "3", "*")).runA(Nil).value)
+  println(evalInput("1 2 + 3 *"))
+}
+
+object OptionMonad {
+  import cats.Monad
+  import scala.annotation.tailrec
+
+  val optionMonad = new cats.Monad[Option] {
+    def flatMap[A, B](opt: Option[A])(fn: A => Option[B]): Option[B] = opt match
+      case None    => None
+      case Some(a) => fn(a)
+
+    def pure[A](a: A): Option[A] = Some(a)
+
+    @tailrec
+    def tailRecM[A, B](a: A)(fn: A => Option[Either[A, B]]): Option[B] =
+      fn(a) match {
+        case None           => None
+        case Some(Left(a1)) => tailRecM(a1)(fn)
+        case Some(Right(b)) => Some(b)
+      }
+  }
 }
 
 @main
@@ -502,4 +574,5 @@ def main: Unit =
   // ReaderMonad
   // ReaderLoginSystem
   // StateMonad
-  StateCalculator
+  // StateCalculator
+  BetterStateCalculator
