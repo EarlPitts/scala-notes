@@ -456,35 +456,34 @@ object StateCalculator {
     case Num(n: Int)
     case Error
 
-  def op(operator: Term)(x: Term, y: Term): Term = (operator, x, y) match
-    case (Term.Plus, Term.Num(x), Term.Num(y))  => Term.Num(x + y)
-    case (Term.Minus, Term.Num(x), Term.Num(y)) => Term.Num(x - y)
+  def eval(operator: Term)(x: Term, y: Term): Term = (operator, x, y) match
+    case (Term.Plus, Term.Num(x), Term.Num(y))  => Term.Num(y + x)
+    case (Term.Minus, Term.Num(x), Term.Num(y)) => Term.Num(y - x)
     case _                                      => Term.Error
 
   def applyOperator(op: (Term, Term) => Term): State[Stack[Term], Unit] =
-    State.modify { (s: Stack[Term]) =>
-      Stack[Term](List({
-        (for {
-          (newStack, op1) <- s.pop
-          (newStack, op2) <- newStack.pop
-        } yield op(op1, op2)).getOrElse(Term.Error)
-      }))
+    State.modify { s =>
+      (s.pop >>= ((newStack, op1) =>
+        newStack.pop >>= ((newStack, op2) => newStack.push(op(op1, op2)).pure)
+      )).getOrElse(Stack[Term](List(Term.Error)))
     }
 
   def calculator(terms: List[Term]): State[Stack[Term], Term] = terms match
     case Nil => State.get.map(_.peek.getOrElse(Term.Error))
     case (t :: ts) =>
       t match
-        case Term.Plus  => applyOperator(op(Term.Plus)) >> calculator(ts)
-        case Term.Minus => applyOperator(op(Term.Minus)) >> calculator(ts)
+        case Term.Plus  => applyOperator(eval(Term.Plus)) >> calculator(ts)
+        case Term.Minus => applyOperator(eval(Term.Minus)) >> calculator(ts)
         case Term.Num(n: Int) =>
-          State.modify[Stack[Term]]((s: Stack[Term]) =>
+          State.modify[Stack[Term]](s =>
             s.push(Term.Num(n))
           ) >> calculator(ts)
         case Term.Error => throw Error("Shouldn't happen")
 
   println(
-    calculator(List(Term.Num(3), Term.Num(2), Term.Minus, Term.Num(2), Term.Plus)).runA(Stack[Term]).value
+    calculator(
+      List(Term.Num(3), Term.Num(2), Term.Minus, Term.Num(2), Term.Plus)
+    ).runA(Stack[Term]).value
   )
 }
 
