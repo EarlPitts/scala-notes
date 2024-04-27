@@ -565,6 +565,36 @@ object OptionMonad {
   }
 }
 
+object TreeMonad {
+  import cats._
+  import cats.syntax.flatMap._
+  // import cats.implicits._
+
+  sealed trait Tree[+A]
+  final case class Node[A](left: Tree[A], right: Tree[A]) extends Tree[A]
+  final case class Leaf[A](a: A) extends Tree[A]
+
+  object Tree {
+    implicit val TreeMonad: cats.Monad[Tree] = new cats.Monad[Tree] {
+      def pure[A](a: A): Tree[A] = Leaf(a)
+
+      def flatMap[A,B](t: Tree[A])(f: A => Tree[B]): Tree[B] = t match
+        case Node(l,r) => Node(l.flatMap(f), r.flatMap(f))
+        case Leaf(a)   => f(a)
+
+      // This is the non-tail-recursive solution!
+      def tailRecM[A, B](a: A)(f: A => Tree[Either[A, B]]): Tree[B] =
+        f(a).flatMap {
+          case Left(a)  => tailRecM(a)(f)
+          case Right(b) => Leaf(b)
+        }
+    }
+  }
+
+  println(cats.Monad[Tree].flatMap(Node(Leaf(1),Leaf(2)))(a => Node(Leaf(a), Leaf(a * 2))))
+   
+}
+
 @main
 def main: Unit =
   // EitherStuff
@@ -575,4 +605,5 @@ def main: Unit =
   // ReaderLoginSystem
   // StateMonad
   // StateCalculator
-  BetterStateCalculator
+  // BetterStateCalculator
+  TreeMonad
