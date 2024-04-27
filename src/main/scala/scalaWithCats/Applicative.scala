@@ -17,15 +17,29 @@ object Motivation {
   } yield a + b + c)
 }
 
-object Semigroupal {
+object SemigroupalExamples {
   import cats._
   import cats.implicits._
+
+  // Only works for 2-tuples
+  println(Semigroupal[Option].product(Some(1),Some(2)))
+  println(Semigroupal[Option].product(Some(1),None))
+
+  // Generalized versions for n-tuples
+  println(Semigroupal.tuple3(Option(1),Option(2),Option(3)))
+  println(Semigroupal.tuple3(Option(1),Option(2),Option.empty[Int]))
+
+  println(Applicative[Option].map2(Some(1),Some(2))(_ + _))
+  println(Semigroupal.map2(Option(1),Option(2))(_ + _))
+
+  println((Some(1),Some(2)).sequence) // Nope, the first projection is part of the context
 }
 
 @main
 def main: Unit =
   println("-" * 50)
-  Motivation
+  // Motivation
+  SemigroupalExamples
   println("-" * 50)
 
 import cats.effect._
