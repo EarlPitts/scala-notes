@@ -6,4 +6,7 @@ libraryDependencies += "co.fs2" %% "fs2-core" % "3.10.0"
 
 scalaVersion := "3.3.1" 
 
+watchTriggeredMessage := ((a, b, c) => None)
+watchStartMessage     := ((a, b, c) => None)
+
 Compile / run / fork := true
