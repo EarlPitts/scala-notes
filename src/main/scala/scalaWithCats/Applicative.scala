@@ -37,7 +37,7 @@ object SemigroupalExamples {
   ) // Nope, the first projection is part of the context
 
   // Semigroupal uses the Monad instance for its implementation!
-  println(Semigroupal[List].product(List(1,2), List(3,4)))
+  println(Semigroupal[List].product(List(1, 2), List(3, 4)))
 }
 
 object ApplySyntax {
@@ -62,12 +62,41 @@ object ApplySyntax {
   )
 }
 
+object ParallelExamples {
+  import cats._
+  import cats.implicits._
+
+  type ErrorOr[A] = Either[Vector[String], A]
+  val error1: ErrorOr[Int] = Left(Vector("Error 1"))
+  val error2: ErrorOr[Int] = Left(Vector("Error 2"))
+
+  println(Semigroupal[ErrorOr].product(error1, error2))
+  println((error1, error2).tupled)
+
+  // the par-prefixed variant uses the Parallel typeclass
+  println((error1, error2).parTupled)
+
+  println((error1, error2).parMapN(_ + _))
+  println((1.asRight[Vector[String]], 2.asRight[Vector[String]]).parMapN(_ + _))
+
+  // Parallel needs a FunctionK for transformin the Monad to an Applicative
+  import cats.arrow.FunctionK
+  object optionToList extends FunctionK[Option, List] {
+    def apply[A](fa: Option[A]): List[A] =
+      fa match {
+        case Some(a) => List(a)
+        case None    => List.empty[A]
+      }
+  }
+}
+
 @main
 def main: Unit =
   println("-" * 50)
   // Motivation
   // SemigroupalExamples
-  ApplySyntax
+  // ApplySyntax
+  ParallelExamples
   println("-" * 50)
 
 import cats.effect._
