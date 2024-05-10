@@ -544,6 +544,21 @@ object BetterStateCalculator {
   println(evalInput("1 2 + 3 *"))
 }
 
+object Equivalent {
+  import cats.data.State
+
+  def f(n: Int): State[List[Int], Int] = for
+    v <- State.get
+    _ <- State.set(n :: v)
+  yield n
+
+  def g(n: Int): State[List[Int], Int] =
+    State.get.flatMap(v => State.set(n :: v).map(_ => n))
+
+  def h(n: Int): State[List[Int], Int] =
+    State({ state => (n :: state, n) })
+}
+
 object OptionMonad {
   import cats.Monad
   import scala.annotation.tailrec
