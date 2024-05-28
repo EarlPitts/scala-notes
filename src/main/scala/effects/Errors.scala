@@ -95,3 +95,14 @@ object Execute extends IOApp:
     a = IO.raiseError[Unit](new RuntimeException("nooo!"))
     ab <- a.attempt
   yield ()
+
+
+object ErrorStuff extends IOApp.Simple:
+  
+  val a: IO[Int] = IO.raiseError(RuntimeException("oh no!"))
+  val b: IO[Int] = IO.delay(throw new RuntimeException("oh no!"))
+
+  def run: IO[Unit] = b.attempt.flatMap { r => r match
+    case Left(x) => IO.println(s"Noo, $x!")
+    case Right(x) => IO.println("Yay!")
+  }
