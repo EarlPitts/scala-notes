@@ -5,5 +5,5 @@ import cats.effect._
 import scala.concurrent.duration._
 
 object NeverApp extends IOApp.Simple {
-  val run: IO[Unit] = (IO.println("lofasz") >> IO.sleep(2.second)).foreverM
+  val run: IO[Unit] = (IO.println("nice") >> IO.sleep(2.second)).foreverM
 }
