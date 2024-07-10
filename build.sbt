@@ -11,6 +11,7 @@ libraryDependencies += "org.http4s" %% "http4s-dsl" % http4sVersion
 libraryDependencies += "org.http4s" %% "http4s-dsl" % http4sVersion
 libraryDependencies += "org.http4s" %% "http4s-circe" % http4sVersion
 libraryDependencies += "io.circe" %% "circe-core" % "0.14.7"
+libraryDependencies += "io.circe" %% "circe-parser" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-generic" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-literal" % "0.14.7"
 

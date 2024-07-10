@@ -106,3 +106,48 @@ object ErrorStuff extends IOApp.Simple:
     case Left(x) => IO.println(s"Noo, $x!")
     case Right(x) => IO.println("Yay!")
   }
+
+object Example:
+  case class User(id: Int, name: String)
+
+  trait Database[F[_]] {
+    def load(id: Int): F[User]
+    def save(user: User): F[Unit]
+  }
+
+  object Database {
+    object syntax {
+      def save[F[_]](user: User)(implicit db: Database[F]): F[Unit] =
+        db.save(user)
+      def load[F[_]](id: Int)(implicit db: Database[F]): F[User] = db.load(id)
+    }
+  }
+
+  import cats.{MonadError, MonadThrow}
+  import cats.syntax.flatMap._
+  import cats.syntax.functor._
+  import cats.syntax.applicativeError._
+  import Database.syntax._
+
+  def updateWithLog[F[_]: Database: MonadThrow](
+      userId: Int,
+      newName: String
+  ): F[User] =
+    updateUser(1, "John")
+      .map { updated =>
+        println("success")
+        updated
+      }
+      .recoverWith { case error =>
+        println(error)
+        MonadThrow[F].raiseError(error)
+      }
+
+  def updateUser[F[_]: Database: MonadThrow](
+      userId: Int,
+      newName: String
+  ): F[User] = for {
+    user <- load(userId)
+    updated = user.copy(name = newName)
+    _ <- save(updated)
+  } yield updated
