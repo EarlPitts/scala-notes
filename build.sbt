@@ -14,6 +14,8 @@ libraryDependencies += "io.circe" %% "circe-core" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-parser" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-generic" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-literal" % "0.14.7"
+libraryDependencies += "org.typelevel" %% "log4cats-slf4j" % "2.3.1"
+libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6"
 
 // val circeVersion = "0.14.1"
 //
@@ -28,4 +30,5 @@ scalaVersion := "3.3.3"
 watchTriggeredMessage := ((a, b, c) => None)
 watchStartMessage := ((a, b, c) => None)
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
 Compile / run / fork := true
