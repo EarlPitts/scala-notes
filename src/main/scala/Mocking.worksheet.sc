@@ -59,3 +59,60 @@ val testLogger = new Logger[IO]:
   def log = _ => IO.unit
 
 // main(mockSaying, mockSending, testLogger)
+
+
+type Key = Char
+type Value = Int
+
+case class KVStoreState(funCalls: Map[String, Int], store: Map[Key, Value])
+
+type MockState[A] = State[KVStoreState, A]
+
+trait KeyValueStore[F[_]]:
+  def get(key: Key): F[Option[Value]]
+  def put(key: Key, value: Value): F[Unit]
+  def delete(key: Key): F[Unit]
+
+object KeyValueStore: 
+  def stub(m: Map[Key, Value]): KeyValueStore[Id] = new KeyValueStore[Id]:
+    def delete(key: Key): Id[Unit] = m - key
+    def get(key: Key): Id[Option[Value]] = m.get(key)
+    def put(key: Key, value: Value): Id[Unit] = m + (key -> value)
+
+  def mock: KeyValueStore[MockState] = new KeyValueStore[MockState]:
+    def incrementCall(funName: String, funCalls: Map[String, Int]): Map[String, Int] =
+      funCalls.updatedWith(funName)(count => Some(count.getOrElse(0) + 1))
+
+    def delete(key: Key): MockState[Unit] = State { s =>
+      val newFunCalls = incrementCall("delete", s.funCalls)
+      val newStore = s.store - key
+      (KVStoreState(newFunCalls, newStore), ())
+    }
+    def get(key: Key): MockState[Option[Value]] = for {
+      s <- State.get[KVStoreState]
+      newFunCalls = incrementCall("get", s.funCalls)
+      _ <- State.set(s.copy(funCalls = newFunCalls))
+    } yield s.store.get(key)
+    def put(key: Key, value: Value): MockState[Unit] = for{
+      s <- State.get[KVStoreState]
+      newFunCalls = incrementCall("put", s.funCalls)
+      newStore = s.store + (key -> value)
+      _ <- State.set(KVStoreState(newFunCalls, newStore))
+    } yield ()
+
+val m = Map.from(List.range('a', 'z').zip(List.iterate(1, 26)(_ + 1)))
+val stub = KeyValueStore.stub(m)
+
+val initialState = KVStoreState(Map.empty[String, Int], m)
+
+val mock = KeyValueStore.mock
+
+val program = for {
+  get1 <- mock.get('a')
+  _ <- mock.delete('a')
+  get2 <- mock.get('a')
+  _ <- mock.put('a', 74)
+  get3 <- mock.get('a')
+} yield (get1, get2, get3)
+
+program.run(initialState).value
