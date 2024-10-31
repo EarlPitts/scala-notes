@@ -16,6 +16,10 @@ libraryDependencies += "io.circe" %% "circe-generic" % "0.14.7"
 libraryDependencies += "io.circe" %% "circe-literal" % "0.14.7"
 libraryDependencies += "org.typelevel" %% "log4cats-slf4j" % "2.3.1"
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6"
+libraryDependencies += "com.disneystreaming" %% "weaver-cats" % "0.8.4" % Test
+libraryDependencies += "com.disneystreaming" %% "weaver-scalacheck" % "0.8.4" % Test
+
+testFrameworks += new TestFramework("weaver.framework.CatsEffect")
 
 // val circeVersion = "0.14.1"
 //
@@ -25,10 +29,12 @@ libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6"
 //   "io.circe" %% "circe-parser"
 // ).map(_ % circeVersion)
 
-scalaVersion := "3.3.3"
+scalaVersion := "3.3.1"
 
 watchTriggeredMessage := ((a, b, c) => None)
 watchStartMessage := ((a, b, c) => None)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 Compile / run / fork := true
+
+connectInput in run := true
