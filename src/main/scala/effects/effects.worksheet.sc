@@ -25,30 +25,6 @@ val p9 = Zero.Player("bela", 13)
 
 Zero.contest(p8, p9).unsafeRun
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 object One:
   // This will only form a monoid
   trait IO:
