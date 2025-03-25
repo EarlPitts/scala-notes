@@ -35,3 +35,24 @@ assertSubtype[Function1[Animal, Int], Function1[Dog, Int]]
 
 
 // val s = Set(Dog,Animal()).size
+
+object Contravariance:
+  class Animal
+
+  class Dog extends Animal
+  class Cat extends Animal
+
+
+  trait List[-A]
+
+  import List.*
+  // case object Nil extends List[Nothing]
+  case object Nil extends List[Any] // We need the top type here, not the bottom one
+  case class Cons[A](a: A, as: List[A]) extends List[A]
+
+  // enum List[-A]:
+  //   case Nil
+  //   case Cons(a: A, as: List[A])
+
+
+  Cons(new Cat, Cons(new Animal, Nil)): List[Cat]
