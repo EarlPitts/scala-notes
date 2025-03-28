@@ -1,6 +1,5 @@
 package HTTP.Server
 
-import parsley.*
 import parsley.combinator.*
 import parsley.character.*
 import parsley.Parsley
