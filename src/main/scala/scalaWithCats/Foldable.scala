@@ -43,11 +43,11 @@ object FoldableExamples {
   println(Foldable[List].foldMap(List(1, 2, 3))(_ + 2))
   println(Foldable[List].foldMap(List(1, 2, 3))(_.toString))
 
-  println(
-    (Foldable[List] compose Foldable[Vector]).fold(
-      List(Vector(1, 2), Vector(3, 4))
-    )
-  )
+  // println(
+  //   (Foldable[List] compose Foldable[Vector]).fold(
+  //     List(Vector(1, 2), Vector(3, 4))
+  //   )
+  // )
 }
 
 object TraverseExamples {

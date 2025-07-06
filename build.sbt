@@ -21,15 +21,7 @@ libraryDependencies += "com.disneystreaming" %% "weaver-scalacheck" % "0.8.4" % 
 
 testFrameworks += new TestFramework("weaver.framework.CatsEffect")
 
-// val circeVersion = "0.14.1"
-//
-// libraryDependencies ++= Seq(
-//   "io.circe" %% "circe-core",
-//   "io.circe" %% "circe-generic",
-//   "io.circe" %% "circe-parser"
-// ).map(_ % circeVersion)
-
-scalaVersion := "3.3.1"
+scalaVersion := "3.6.4"
 
 watchTriggeredMessage := ((a, b, c) => None)
 watchStartMessage := ((a, b, c) => None)

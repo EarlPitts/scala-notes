@@ -3,7 +3,6 @@
 .bsp/
 .metals/
 .scala-build/
-.scalafmt.conf
 project/
 resources/
 target/
