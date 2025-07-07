@@ -17,7 +17,9 @@ object FlexibleFind:
         case ReturnNone => None
         case Default(a) => Some(a)
 
-  flexibleFind(List(1, 2, 3), _ >= 4, Default(5))
+// import FlexibleFind.*
+//
+// flexibleFind(List(1, 2, 3), _ >= 4, T.Default(4))
 
 object GADTFlexibleFind:
   enum T[A, B]:

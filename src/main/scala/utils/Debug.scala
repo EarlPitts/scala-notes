@@ -1,7 +1,7 @@
 package Utils.Debug.syntax
 
 import cats.effect.*
-
+import cats.effect.unsafe.IORuntime
 
 val clock: IO[Long] = IO(System.currentTimeMillis())
 
@@ -18,3 +18,6 @@ extension [A](io: IO[A])
     io.flatTap { a =>
       IO(println(s"[${Thread.currentThread.getName}] $a"))
     }
+
+  def yolo(implicit ec: IORuntime): A =
+    io.unsafeRunSync()
